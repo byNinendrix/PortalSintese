@@ -1,0 +1,13 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+//
+// Database-first note:
+// No definitive models are declared yet.
+// The official source is SQL Server 2014 legacy schema.
+// Prisma usage in production will be decided after compatibility validation.

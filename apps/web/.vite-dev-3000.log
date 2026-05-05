@@ -1,0 +1,46 @@
+
+> @sintese/web@0.1.0 dev C:\Users\everton.silva\Downloads\Projetos\PortalSintese\apps\web
+> vite
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m464[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://10.40.40.112:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.1.92:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://54.232.189.113:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.159.1:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.42.1:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.21.160.1:[1m3000[22m/[39m
+[2m14:57:18[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/app/layout/AppShell.tsx, /src/index.css[22m
+[2m14:57:27[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx, /src/index.css[22m
+[2m14:57:40[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m14:57:48[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m14:57:58[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx, /src/index.css[22m
+[2m14:58:08[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/parceiros/pages/ParceirosPage.tsx, /src/index.css[22m
+[2m14:58:17[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/convenios/pages/ConveniosPage.tsx, /src/index.css[22m
+[2m14:58:25[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/@fs/C:/Users/everton.silva/Downloads/Projetos/PortalSintese/packages/ui/src/Input.tsx, /src/index.css[22m
+[2m14:59:39[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx, /src/index.css[22m
+[2m15:00:07[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m15:00:07[22m [36m[1m[vite][22m[39m server restarted.
+[2m15:07:29[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m15:08:15[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx[22m
+[2m15:10:57[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx[22m
+[2m15:19:08[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/features/auth/pages/LoginPage.tsx, /src/features/auth/pages/ForgotPasswordPage.tsx, /src/features/auth/pages/RegisterPage.tsx[22m
+[2m15:19:18[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/features/auth/pages/LoginPage.tsx, /src/features/auth/pages/ForgotPasswordPage.tsx, /src/features/auth/pages/RegisterPage.tsx[22m
+[2m15:19:38[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m15:19:46[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m15:44:10[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m15:45:04[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m16:29:50[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/features/auth/pages/LoginPage.tsx, /src/features/auth/pages/ForgotPasswordPage.tsx, /src/features/auth/pages/RegisterPage.tsx[22m
+[2m16:31:03[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m16:32:02[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx[22m
+[2m16:32:16[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx, /src/index.css[22m
+[2m16:33:04[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx[22m
+[2m16:53:42[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/features/auth/pages/LoginPage.tsx, /src/features/auth/pages/RegisterPage.tsx, /src/features/auth/pages/ForgotPasswordPage.tsx[22m
+[2m16:53:50[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/features/auth/pages/LoginPage.tsx, /src/features/auth/pages/RegisterPage.tsx, /src/features/auth/pages/ForgotPasswordPage.tsx[22m
+[2m16:54:07[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx, /src/index.css[22m
+[2m16:54:54[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx[22m
+[2m17:11:16[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx[22m
+[2m17:14:04[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx[22m
+[2m17:16:46[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx[22m

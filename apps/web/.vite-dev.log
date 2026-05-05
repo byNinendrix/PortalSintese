@@ -1,0 +1,37 @@
+
+> @sintese/web@0.1.0 dev C:\Users\everton.silva\Downloads\Projetos\PortalSintese\apps\web
+> vite
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m391[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m08:39:54[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/app/layout/AppShell.tsx, /src/index.css[22m
+[2m08:39:57[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx, /src/index.css[22m
+[2m08:40:18[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m08:40:35[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m08:45:11[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m08:46:37[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/app/layout/AppShell.tsx, /src/index.css[22m
+[2m08:46:42[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx, /src/index.css[22m
+[2m08:47:06[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m08:47:29[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m08:56:45[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m08:57:43[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m08:58:20[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m08:59:03[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m09:01:04[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx[22m
+[2m09:02:27[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/app/layout/AppShell.tsx, /src/index.css[22m
+[2m09:02:34[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m09:03:01[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx[22m
+[2m09:24:17[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx[22m
+[2m09:24:47[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx[22m
+[2m09:25:08[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx[22m
+[2m09:25:22[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx[22m
+[2m09:35:24[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/LoginPage.tsx, /src/index.css[22m
+[2m09:35:44[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m09:43:50[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/app/layout/AppShell.tsx, /src/index.css[22m
+[2m09:44:08[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx, /src/index.css[22m
+[2m09:44:50[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx[22m
+[2m09:58:03[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/RegisterPage.tsx, /src/index.css[22m
+[2m09:58:10[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/features/auth/pages/ForgotPasswordPage.tsx, /src/index.css[22m

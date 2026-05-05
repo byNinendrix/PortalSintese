@@ -1,0 +1,108 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --sintese-50: #ecfeff;
+    --sintese-100: #cffafe;
+    --sintese-500: #0891b2;
+    --sintese-600: #0e7490;
+    --sintese-700: #155e75;
+    --sintese-900: #0c3547;
+  }
+
+  body {
+    @apply bg-slate-100 text-slate-800 antialiased;
+    font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  }
+}
+
+@layer components {
+  .auth-page-bg {
+    @apply min-h-screen bg-[radial-gradient(circle_at_0%_0%,#e0f2fe_0%,transparent_35%),radial-gradient(circle_at_100%_100%,#dbeafe_0%,transparent_40%),linear-gradient(180deg,#f8fafc,#eef2ff)];
+  }
+
+  .auth-card-modern {
+    @apply rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur sm:p-6;
+  }
+
+  .surface-card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.08)];
+  }
+
+  .section-title {
+    @apply rounded-lg bg-slate-900 px-3 py-2 text-center text-sm font-bold tracking-wide text-white;
+    font-family: "Sora", "Plus Jakarta Sans", sans-serif;
+  }
+
+  .page-container {
+    @apply mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 md:py-8 lg:px-8;
+  }
+
+  .form-card {
+    @apply mx-auto w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6;
+  }
+
+  .ds-card {
+    @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200;
+  }
+
+  .form-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2;
+  }
+
+  .form-label {
+    @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600;
+  }
+
+  .form-input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition duration-200 placeholder:text-slate-400 focus:border-sintese-500 focus:ring-2 focus:ring-sintese-100;
+  }
+
+  .form-select {
+    @apply form-input;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-sintese-600 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-sintese-700 focus:outline-none focus:ring-2 focus:ring-sintese-100 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-modern-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-sky-600 to-cyan-500 px-4 py-2 text-sm font-bold text-white transition duration-200 hover:from-sky-700 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-modern-danger {
+    @apply inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-600 to-red-500 px-4 py-2 text-sm font-bold text-white transition duration-200 hover:from-rose-700 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition duration-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center rounded-xl bg-sintese-500 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-sintese-600 focus:outline-none focus:ring-2 focus:ring-sintese-100 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-sintese-700 transition duration-200 hover:bg-sintese-100 focus:outline-none focus:ring-2 focus:ring-sintese-100 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .alert-error {
+    @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700;
+  }
+
+  .alert-warning {
+    @apply rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700;
+  }
+
+  .alert-info {
+    @apply rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700;
+  }
+
+  .alert-success {
+    @apply rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700;
+  }
+}
