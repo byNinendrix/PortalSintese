@@ -9,3 +9,7 @@ build
 !.env.example
 coverage
 apps/api/prisma/migrations
+
+# Dev logs
+*.log
+*.err.log
