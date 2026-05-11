@@ -7,6 +7,7 @@ interface AppShellProps {
 }
 
 const navItems = [
+  { to: "/menu-principal", label: "Menu Principal" },
   { to: "/login", label: "Login" },
   { to: "/cadastro", label: "Cadastro" },
   { to: "/recuperar-senha", label: "Recuperar Senha" },
@@ -19,6 +20,11 @@ export function AppShell({ children }: AppShellProps) {
   const { pathname } = useLocation();
   const isLegacyLoginView =
     pathname === "/login" ||
+    pathname === "/menu-principal" ||
+    pathname === "/redefinir-senha" ||
+    pathname === "/atualizar-meus-dados" ||
+    pathname === "/minhas-filiacoes" ||
+    pathname === "/lgpd-online" ||
     pathname === "/cadastro" ||
     pathname === "/recuperar-senha" ||
     pathname === "/convenios";
@@ -34,7 +40,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc,#eef2ff)]">
       <aside className="fixed left-0 top-0 hidden h-screen w-72 border-r border-slate-200/80 bg-white/90 p-4 backdrop-blur lg:block">
-        <Link to="/login" className="block text-lg font-extrabold text-slate-900">
+        <Link to="/menu-principal" className="block text-lg font-extrabold text-slate-900">
           Portal SINTESE
         </Link>
         <p className="mt-1 text-xs uppercase tracking-wider text-slate-500">Plataforma modernizada</p>

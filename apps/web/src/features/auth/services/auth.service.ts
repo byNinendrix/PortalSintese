@@ -4,6 +4,8 @@ import type {
   CpfCheckResponse,
   PasswordRecoveryRequest,
   PasswordRecoveryResponse,
+  ResetOwnPasswordRequest,
+  ResetOwnPasswordResponse,
   UserRegistrationRequest
 } from "@sintese/types";
 import { USE_MOCKS } from "../../../config/featureFlags";
@@ -14,6 +16,7 @@ export interface AuthService {
   login(payload: AuthLoginRequest): Promise<AuthTokensResponse>;
   register(payload: UserRegistrationRequest): Promise<{ success: true }>;
   recoverPassword(payload: PasswordRecoveryRequest): Promise<PasswordRecoveryResponse>;
+  resetPassword(payload: ResetOwnPasswordRequest): Promise<ResetOwnPasswordResponse>;
   checkCpfExists(cpf: string): Promise<CpfCheckResponse>;
 }
 
@@ -43,6 +46,17 @@ class AuthServiceImpl implements AuthService {
       return mockRecoverPassword(payload);
     }
     return apiRequest<PasswordRecoveryResponse>("/auth/recover-password", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async resetPassword(payload: ResetOwnPasswordRequest): Promise<ResetOwnPasswordResponse> {
+    if (USE_MOCKS) {
+      return { success: true, message: "Senha atualizada com sucesso." };
+    }
+
+    return apiRequest<ResetOwnPasswordResponse>("/auth/reset-password", {
       method: "POST",
       body: JSON.stringify(payload)
     });

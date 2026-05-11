@@ -3,11 +3,109 @@ import * as nodemailer from "nodemailer";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
 import { renderPortalEmailTemplate } from "../../../shared/email/portal-email.template";
 import { CreateUserDto } from "../dto/create-user.dto";
+import { UpdateUserDataDto } from "../dto/update-user-data.dto";
 
 interface PessoaLoginRow {
   CPF: string;
   EMAIL?: string | null;
   WHATSAPP?: string | null;
+}
+
+interface PessoaProfileRow {
+  CPF: string;
+  NOME?: string | null;
+}
+
+interface FiliacaoRow {
+  CPF: string;
+  situacao?: string | null;
+  MATRICULA?: string | number | null;
+  CODIGO_EMPRESA?: string | number | null;
+  DESCRICAO_EMPRESA?: string | null;
+  CODIGO_PREDIO?: string | number | null;
+  DESCRICAO_PREDIO?: string | null;
+  tempo_filiacao?: string | null;
+  REGIAO?: string | null;
+}
+
+interface AtualizarDadosPessoaRow {
+  CPF: string;
+  NOME?: string | null;
+  FOTO_IMG?: Buffer | string | null;
+  PAI?: string | null;
+  MAE?: string | null;
+  NATURALIDADE?: string | null;
+  UFNATURALIDADE?: string | null;
+  NACIONALIDADE?: string | null;
+  FATOR_HR?: string | null;
+  RG?: string | null;
+  RG_ORGAO?: string | null;
+  RG_UF?: string | null;
+  DATAEXPRG?: Date | string | null;
+  TITULOELEITOR?: string | null;
+  SEXO?: string | null;
+  ESTADOCIVIL?: string | null;
+  TELEFONE?: string | null;
+  CELULAR?: string | null;
+  DATANASCIMENTO?: Date | string | null;
+  GRAUINSTRUCAO?: string | null;
+  CARTPROFISSIONAL?: string | null;
+  EMAIL?: string | null;
+  RACA?: string | null;
+  SANGUE_TP_RH?: string | null;
+  CELULARII?: string | null;
+  ENDERECO_ACR?: string | null;
+  COMPLEMENTO_ACR?: string | null;
+  BAIRRO_ACR?: string | null;
+  CIDADE_ACR?: string | null;
+  ESTADO_ACR?: string | null;
+  CEP_ACR?: string | null;
+  NUMERO_ACR?: string | null;
+  ID_PESSOA?: string | number | null;
+  NOME_SOCIAL?: string | null;
+  ESPECIFICAR_GENERO?: string | null;
+  ORIENTACAO_SEXUAL?: string | null;
+}
+
+interface EstadoCivilFallbackRow {
+  ESTADOCIVIL?: string | null;
+}
+
+interface LookupUfRow {
+  estado?: string | null;
+}
+
+interface LookupGeneroRow {
+  GENERO?: string | null;
+  DESCRICAO?: string | null;
+}
+
+interface LookupEstadoCivilRow {
+  CODIGO?: string | number | null;
+  DESCRICAO?: string | null;
+}
+
+interface LookupRacaRow {
+  CODIGO?: string | number | null;
+  DESCRICAO?: string | null;
+}
+
+interface LookupCidadeRow {
+  CIDADE?: string | null;
+  UF?: string | null;
+}
+
+interface PessoaUpdateSnapshotRow {
+  CPF: string;
+  ENDERECO_ACR?: string | null;
+  COMPLEMENTO_ACR?: string | null;
+  BAIRRO_ACR?: string | null;
+  CIDADE_ACR?: string | null;
+  ESTADO_ACR?: string | null;
+  CEP_ACR?: string | null;
+  NUMERO_ACR?: string | null;
+  ENDERECO_ALTEROU?: string | number | boolean | null;
+  SOLICITOU_ALT_ENDE?: string | number | boolean | null;
 }
 
 interface SindicatoMailSettingsRow {
@@ -36,9 +134,146 @@ export class UsersService {
     return digits.length > 0 ? digits : null;
   }
 
+  private maskCpf(cpfDigits: string): string {
+    if (cpfDigits.length !== 11) {
+      return cpfDigits;
+    }
+    return `${cpfDigits.slice(0, 3)}.${cpfDigits.slice(3, 6)}.${cpfDigits.slice(6, 9)}-${cpfDigits.slice(9, 11)}`;
+  }
+
+  private async resolveEstadoCivil(cpfDigits: string, estadoCivil?: string | null): Promise<string> {
+    const direct = estadoCivil?.trim() ?? "";
+    if (direct) {
+      return direct;
+    }
+
+    const aggRows = await this.legacyDatabaseService.query<EstadoCivilFallbackRow>(
+      `
+      Select Top 1
+        ESTADOCIVIL
+      From
+        AGG_FILIACAO
+      Where
+        CPF = @CPF
+        And NullIf(LTrim(RTrim(IsNull(ESTADOCIVIL, ''))), '') Is Not Null
+      Order By
+        Case
+          When LTrim(RTrim(IsNull(ESTADOCIVIL, ''))) = '0' Then 1
+          Else 0
+        End
+      `,
+      { CPF: cpfDigits }
+    );
+
+    const aggEstadoCivil = aggRows[0]?.ESTADOCIVIL?.trim() ?? "";
+    if (aggEstadoCivil) {
+      return aggEstadoCivil;
+    }
+
+    return "0";
+  }
+
+  private toDateIso(value: Date | string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString().slice(0, 10);
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+  }
+
+  private toFotoDataUrl(value: Buffer | string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+      if (trimmed.startsWith("data:image/")) {
+        return trimmed;
+      }
+      return `data:image/jpeg;base64,${trimmed}`;
+    }
+
+    const buffer = value;
+    if (buffer.length === 0) {
+      return null;
+    }
+
+    let mimeType = "image/jpeg";
+    if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+      mimeType = "image/png";
+    } else if (buffer.length >= 3 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+      mimeType = "image/gif";
+    } else if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xd8) {
+      mimeType = "image/jpeg";
+    }
+
+    return `data:${mimeType};base64,${buffer.toString("base64")}`;
+  }
+
+  private normalizeOptionalText(value?: string): string | null {
+    const trimmed = (value ?? "").trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeCep(value?: string): string | null {
+    const digits = (value ?? "").replace(/\D/g, "");
+    return digits.length > 0 ? digits : null;
+  }
+
+  private toDateValue(value?: string): Date | null {
+    const trimmed = (value ?? "").trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const parsed = new Date(`${trimmed}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException("Data inválida informada na atualização.");
+    }
+
+    return parsed;
+  }
+
+  private parseFotoFromDataUrl(value: string): Buffer {
+    const trimmed = value.trim();
+    const base64 = trimmed.startsWith("data:")
+      ? trimmed.slice(trimmed.indexOf(",") + 1)
+      : trimmed;
+
+    if (!base64) {
+      throw new BadRequestException("Imagem de perfil inválida.");
+    }
+
+    try {
+      return Buffer.from(base64, "base64");
+    } catch {
+      throw new BadRequestException("Imagem de perfil inválida.");
+    }
+  }
+
   private isAutenticacaoEnabled(value: SindicatoMailSettingsRow["AUTENTICACAO"]): boolean {
     if (typeof value === "boolean") {
       return value;
+    }
+    const normalized = String(value ?? "").trim().toLowerCase();
+    return normalized === "1" || normalized === "s" || normalized === "sim" || normalized === "true";
+  }
+
+  private isFlagEnabled(value: string | number | boolean | null | undefined): boolean {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "number") {
+      return value === 1;
     }
     const normalized = String(value ?? "").trim().toLowerCase();
     return normalized === "1" || normalized === "s" || normalized === "sim" || normalized === "true";
@@ -172,6 +407,502 @@ Por segurança, altere essa senha no primeiro acesso.`;
       exists: true,
       email: rows[0].EMAIL?.trim() ?? null,
       whatsapp: rows[0].WHATSAPP?.trim() ?? null
+    };
+  }
+
+  async getProfileByCpf(cpf?: string) {
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const rows = await this.legacyDatabaseService.query<PessoaProfileRow>(
+      `
+      Select Top 1
+        CPF,
+        NOME
+      From
+        PESSOAS
+      Where
+        CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    if (rows.length === 0) {
+      throw new BadRequestException("Pessoa não encontrada para o CPF informado.");
+    }
+
+    return {
+      cpf: this.maskCpf(cpfDigits),
+      nome: rows[0].NOME?.trim() ?? ""
+    };
+  }
+
+  async getFiliacoesByCpf(cpf?: string) {
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const rows = await this.legacyDatabaseService.query<FiliacaoRow>(
+      `
+      With PESSOA_BASE As (
+        Select Top 1
+          CPF,
+          ESTADO,
+          CIDADE
+        From
+          PESSOAS
+        Where
+          CPF = @CPF
+      )
+      Select
+        FILIADO.CPF,
+        SITUACAO_FILIADO.DESCRICAO As situacao,
+        FILIADO.MATRICULA,
+        FILIADO.CODIGO_EMPRESA As CODIGO_EMPRESA,
+        EMPRESA.DESCRICAO As DESCRICAO_EMPRESA,
+        FILIADO.CODIGO_PREDIO As CODIGO_PREDIO,
+        PREDIO.DESCRICAO As DESCRICAO_PREDIO,
+        Case
+          When FILIADO.DATADESFILIACAO Is Null Then
+            dbo.idadeextenso(FILIADO.DATASINDICALIZACAO, GetDate())
+          Else dbo.idadeextenso(GetDate(), GetDate()) End As tempo_filiacao,
+        Case
+          When FILIADO.SITUACAO = '3' Then IsNull(REGIAO1.DESCRICAO, REGIAO.DESCRICAO)
+          Else REGIAO.DESCRICAO End As REGIAO
+      From
+        FILIADO
+        Left Join
+        SITUACAO_FILIADO On FILIADO.SITUACAO = SITUACAO_FILIADO.CODIGO
+        Left Join
+        EMPRESA On FILIADO.CODIGO_EMPRESA = EMPRESA.CODIGO
+        Left Join
+        PREDIO On (FILIADO.CODIGO_EMPRESA = PREDIO.CODIGO_EMPRESA) And
+          (FILIADO.CODIGO_PREDIO = PREDIO.CODIGO)
+        Left Join
+        REGIAO On FILIADO.REGIAO = REGIAO.CODIGO
+        Left Join
+        PESSOA_BASE On FILIADO.CPF = PESSOA_BASE.CPF
+        Left Join
+        GLO_CIDADE On (PESSOA_BASE.ESTADO = GLO_CIDADE.UF) And (PESSOA_BASE.CIDADE =
+          GLO_CIDADE.CIDADE)
+        Left Join
+        REGIAO REGIAO1 On GLO_CIDADE.REGIAO = REGIAO1.CODIGO
+      Where
+        FILIADO.CPF = @CPF
+      Order By
+        FILIADO.CODIGO_EMPRESA,
+        FILIADO.CODIGO_PREDIO,
+        FILIADO.MATRICULA
+      `,
+      { CPF: cpfDigits }
+    );
+
+    return rows.map((row) => ({
+      cpf: this.maskCpf(cpfDigits),
+      situacao: row.situacao?.trim() ?? "",
+      matricula: String(row.MATRICULA ?? "").trim(),
+      codigoEmpresa: String(row.CODIGO_EMPRESA ?? "").trim(),
+      descricaoEmpresa: row.DESCRICAO_EMPRESA?.trim() ?? "",
+      codigoPredio: String(row.CODIGO_PREDIO ?? "").trim(),
+      descricaoPredio: row.DESCRICAO_PREDIO?.trim() ?? "",
+      regiao: row.REGIAO?.trim() ?? "",
+      tempoFiliacao: row.tempo_filiacao?.trim() ?? ""
+    }));
+  }
+
+  async getAtualizarDadosByCpf(cpf?: string) {
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const rows = await this.legacyDatabaseService.query<AtualizarDadosPessoaRow>(
+      `
+      Select Top 1
+        PESSOAS.CPF,
+        PESSOAS.NOME,
+        PESSOAS.FOTO_IMG,
+        PESSOAS.PAI,
+        PESSOAS.MAE,
+        PESSOAS.NATURALIDADE,
+        PESSOAS.UFNATURALIDADE,
+        PESSOAS.NACIONALIDADE,
+        PESSOAS.FATOR_HR,
+        PESSOAS.RG,
+        PESSOAS.RG_ORGAO,
+        PESSOAS.RG_UF,
+        PESSOAS.DATAEXPRG,
+        PESSOAS.TITULOELEITOR,
+        PESSOAS.SEXO,
+        PESSOAS.ESTADOCIVIL,
+        PESSOAS.TELEFONE,
+        PESSOAS.CELULAR,
+        PESSOAS.DATANASCIMENTO,
+        PESSOAS.GRAUINSTRUCAO,
+        PESSOAS.CARTPROFISSIONAL,
+        PESSOAS.EMAIL,
+        PESSOAS.RACA,
+        PESSOAS.SANGUE_TP_RH,
+        PESSOAS.CELULARII,
+        PESSOAS.ENDERECO_ACR,
+        PESSOAS.COMPLEMENTO_ACR,
+        PESSOAS.BAIRRO_ACR,
+        PESSOAS.CIDADE_ACR,
+        PESSOAS.ESTADO_ACR,
+        PESSOAS.CEP_ACR,
+        PESSOAS.NUMERO_ACR,
+        PESSOAS.ID_PESSOA,
+        PESSOAS.NOME_SOCIAL,
+        PESSOAS.ESPECIFICAR_GENERO,
+        PESSOAS.ORIENTACAO_SEXUAL
+      From
+        PESSOAS
+      Where
+        PESSOAS.CPF = @CPF
+      Order By
+        Case
+          When NullIf(LTrim(RTrim(IsNull(PESSOAS.ESTADOCIVIL, ''))), '') Is Null Then 1
+          Else 0
+        End,
+        IsNull(PESSOAS.ID_PESSOA, 0) Desc
+      `,
+      { CPF: cpfDigits }
+    );
+
+    if (rows.length === 0) {
+      throw new BadRequestException("Pessoa não encontrada para o CPF informado.");
+    }
+
+    const row = rows[0];
+    const estadoCivilResolved = await this.resolveEstadoCivil(cpfDigits, row.ESTADOCIVIL);
+
+    return {
+      cpf: this.maskCpf(cpfDigits),
+      nome: row.NOME?.trim() ?? "",
+      fotoPerfilUrl: this.toFotoDataUrl(row.FOTO_IMG),
+      pai: row.PAI?.trim() ?? "",
+      mae: row.MAE?.trim() ?? "",
+      naturalidade: row.NATURALIDADE?.trim() ?? "",
+      ufNaturalidade: row.UFNATURALIDADE?.trim() ?? "",
+      nacionalidade: row.NACIONALIDADE?.trim() ?? "",
+      fatorHr: row.FATOR_HR?.trim() ?? "",
+      rg: row.RG?.trim() ?? "",
+      rgOrgao: row.RG_ORGAO?.trim() ?? "",
+      rgUf: row.RG_UF?.trim() ?? "",
+      dataExpRg: this.toDateIso(row.DATAEXPRG),
+      tituloEleitor: row.TITULOELEITOR?.trim() ?? "",
+      sexo: row.SEXO?.trim() ?? "",
+      estadoCivil: estadoCivilResolved,
+      telefone: row.TELEFONE?.trim() ?? "",
+      celular: row.CELULAR?.trim() ?? "",
+      dataNascimento: this.toDateIso(row.DATANASCIMENTO),
+      grauInstrucao: row.GRAUINSTRUCAO?.trim() ?? "",
+      cartProfissional: row.CARTPROFISSIONAL?.trim() ?? "",
+      email: row.EMAIL?.trim() ?? "",
+      raca: row.RACA?.trim() ?? "",
+      sangueTpRh: row.SANGUE_TP_RH?.trim() ?? "",
+      celularIi: row.CELULARII?.trim() ?? "",
+      enderecoAcr: row.ENDERECO_ACR?.trim() ?? "",
+      complementoAcr: row.COMPLEMENTO_ACR?.trim() ?? "",
+      bairroAcr: row.BAIRRO_ACR?.trim() ?? "",
+      cidadeAcr: row.CIDADE_ACR?.trim() ?? "",
+      estadoAcr: row.ESTADO_ACR?.trim() ?? "",
+      cepAcr: row.CEP_ACR?.trim() ?? "",
+      numeroAcr: row.NUMERO_ACR?.trim() ?? "",
+      idPessoa: String(row.ID_PESSOA ?? "").trim(),
+      nomeSocial: row.NOME_SOCIAL?.trim() ?? "",
+      especificarGenero: row.ESPECIFICAR_GENERO?.trim() ?? "",
+      orientacaoSexual: row.ORIENTACAO_SEXUAL?.trim() ?? ""
+    };
+  }
+
+  async getLookupUfs() {
+    const rows = await this.legacyDatabaseService.query<LookupUfRow>(
+      `
+      Select
+        Cast(GLO_UF.UF As VarChar(2)) As estado
+      From
+        GLO_UF
+      Order By
+        GLO_UF.UF
+      `
+    );
+
+    return rows.map((row) => ({
+      value: row.estado?.trim() ?? "",
+      label: row.estado?.trim() ?? ""
+    }));
+  }
+
+  async getLookupGeneros() {
+    const rows = await this.legacyDatabaseService.query<LookupGeneroRow>(
+      `
+      Select
+        GENERO.GENERO,
+        GENERO.DESCRICAO
+      From
+        GENERO
+      Order By
+        GENERO.DESCRICAO
+      `
+    );
+
+    return rows.map((row) => ({
+      value: row.GENERO?.trim() ?? "",
+      label: row.DESCRICAO?.trim() ?? ""
+    }));
+  }
+
+  async getLookupEstadosCivis() {
+    const rows = await this.legacyDatabaseService.query<LookupEstadoCivilRow>(
+      `
+      Select
+        ESTADOCIVIL.CODIGO,
+        ESTADOCIVIL.DESCRICAO
+      From
+        ESTADOCIVIL
+      `
+    );
+
+    return rows.map((row) => ({
+      value: String(row.CODIGO ?? "").trim(),
+      label: row.DESCRICAO?.trim() ?? ""
+    }));
+  }
+
+  async getLookupRacas() {
+    const rows = await this.legacyDatabaseService.query<LookupRacaRow>(
+      `
+      Select
+        RACA.CODIGO,
+        RACA.DESCRICAO
+      From
+        RACA
+      Order By
+        RACA.CODIGO
+      `
+    );
+
+    return rows.map((row) => ({
+      value: String(row.CODIGO ?? "").trim(),
+      label: row.DESCRICAO?.trim() ?? ""
+    }));
+  }
+
+  async getLookupCidades(uf?: string) {
+    const ufClean = (uf ?? "").trim().toUpperCase();
+
+    const rows = await this.legacyDatabaseService.query<LookupCidadeRow>(
+      `
+      Select
+        GLO_CIDADE.CIDADE,
+        GLO_CIDADE.UF
+      From
+        GLO_CIDADE
+        Inner Join
+        GLO_UF On GLO_CIDADE.UF = GLO_UF.UF
+      Where
+        (@UF = '' Or GLO_CIDADE.UF = @UF)
+      Order By
+        GLO_CIDADE.CIDADE
+      `,
+      { UF: ufClean }
+    );
+
+    return rows.map((row) => ({
+      value: row.CIDADE?.trim() ?? "",
+      label: row.CIDADE?.trim() ?? "",
+      uf: row.UF?.trim() ?? ""
+    }));
+  }
+
+  getLookupFatoresSanguineos() {
+    const options = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
+    return options.map((item) => ({
+      value: item,
+      label: item
+    }));
+  }
+
+  async updateAtualizarDados(payload: UpdateUserDataDto) {
+    const cpfDigits = this.sanitizeCpf(payload.cpf ?? "");
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const requiredFields = [
+      { key: "nome", label: "Nome Completo" },
+      { key: "enderecoAcr", label: "Endereço" },
+      { key: "numeroAcr", label: "Número" },
+      { key: "bairroAcr", label: "Bairro" },
+      { key: "estadoAcr", label: "UF" },
+      { key: "cidadeAcr", label: "Cidade" }
+    ] as const;
+
+    for (const field of requiredFields) {
+      const rawValue = payload[field.key];
+      if (!rawValue || rawValue.trim().length === 0) {
+        throw new BadRequestException(`O campo ${field.label} é obrigatório.`);
+      }
+    }
+
+    const snapshotRows = await this.legacyDatabaseService.query<PessoaUpdateSnapshotRow>(
+      `
+      Select Top 1
+        CPF,
+        ENDERECO_ACR,
+        COMPLEMENTO_ACR,
+        BAIRRO_ACR,
+        CIDADE_ACR,
+        ESTADO_ACR,
+        CEP_ACR,
+        NUMERO_ACR,
+        ENDERECO_ALTEROU,
+        SOLICITOU_ALT_ENDE
+      From
+        PESSOAS
+      Where
+        CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    if (snapshotRows.length === 0) {
+      throw new BadRequestException("Pessoa não encontrada para o CPF informado.");
+    }
+
+    const current = snapshotRows[0];
+    const fotoFoiInformada = typeof payload.fotoPerfilBase64 === "string";
+    const fotoBuffer = fotoFoiInformada ? this.parseFotoFromDataUrl(payload.fotoPerfilBase64 ?? "") : null;
+
+    const enderecoAcr = this.normalizeOptionalText(payload.enderecoAcr);
+    const complementoAcr = this.normalizeOptionalText(payload.complementoAcr);
+    const bairroAcr = this.normalizeOptionalText(payload.bairroAcr);
+    const cidadeAcr = this.normalizeOptionalText(payload.cidadeAcr);
+    const estadoAcr = this.normalizeOptionalText(payload.estadoAcr)?.toUpperCase() ?? null;
+    const cepAcr = this.normalizeCep(payload.cepAcr);
+    const numeroAcr = this.normalizeOptionalText(payload.numeroAcr);
+    const normalize = (value?: string | null) => (value ?? "").trim();
+    const enderecoFoiAlterado =
+      normalize(current.ENDERECO_ACR) !== normalize(enderecoAcr) ||
+      normalize(current.COMPLEMENTO_ACR) !== normalize(complementoAcr) ||
+      normalize(current.BAIRRO_ACR) !== normalize(bairroAcr) ||
+      normalize(current.CIDADE_ACR) !== normalize(cidadeAcr) ||
+      normalize(current.ESTADO_ACR) !== normalize(estadoAcr) ||
+      normalize(current.CEP_ACR) !== normalize(cepAcr) ||
+      normalize(current.NUMERO_ACR) !== normalize(numeroAcr);
+
+    const possuiSolicitacaoEnderecoPendente =
+      this.isFlagEnabled(current.ENDERECO_ALTEROU) || this.isFlagEnabled(current.SOLICITOU_ALT_ENDE);
+
+    if (
+      enderecoFoiAlterado &&
+      possuiSolicitacaoEnderecoPendente &&
+      payload.confirmarSubstituicaoSolicitacaoEndereco !== true
+    ) {
+      throw new ConflictException({
+        code: "ENDERECO_SOLICITACAO_PENDENTE",
+        message:
+          "Já existe uma solicitação de alteração de endereço em análise. Deseja substituir a solicitação atual por esta nova? O prazo de análise será reiniciado."
+      });
+    }
+
+    await this.legacyDatabaseService.query(
+      `
+      Update PESSOAS
+      Set
+        NOME = @NOME,
+        PAI = @PAI,
+        MAE = @MAE,
+        FATOR_HR = @SANGUE_TP_RH,
+        RG = @RG,
+        RG_ORGAO = @RG_ORGAO,
+        RG_UF = @RG_UF,
+        DATAEXPRG = @DATAEXPRG,
+        SEXO = @SEXO,
+        ESTADOCIVIL = @ESTADOCIVIL,
+        TELEFONE = @TELEFONE,
+        CELULAR = @CELULAR,
+        DATANASCIMENTO = @DATANASCIMENTO,
+        RACA = @RACA,
+        SANGUE_TP_RH = @SANGUE_TP_RH,
+        CELULARII = @CELULARII,
+        ENDERECO_ACR = @ENDERECO_ACR,
+        COMPLEMENTO_ACR = @COMPLEMENTO_ACR,
+        BAIRRO_ACR = @BAIRRO_ACR,
+        CIDADE_ACR = @CIDADE_ACR,
+        ESTADO_ACR = @ESTADO_ACR,
+        CEP_ACR = @CEP_ACR,
+        NUMERO_ACR = @NUMERO_ACR,
+        NOME_SOCIAL = @NOME_SOCIAL,
+        ESPECIFICAR_GENERO = @ESPECIFICAR_GENERO,
+        ORIENTACAO_SEXUAL = @ORIENTACAO_SEXUAL,
+        FOTO_IMG = Case
+          When @FOTO_IMG_SET = 1 Then Cast(@FOTO_IMG As VarBinary(Max))
+          Else FOTO_IMG
+        End
+      Where
+        CPF = @CPF
+      `,
+      {
+        CPF: cpfDigits,
+        NOME: this.normalizeOptionalText(payload.nome),
+        PAI: this.normalizeOptionalText(payload.pai),
+        MAE: this.normalizeOptionalText(payload.mae),
+        SANGUE_TP_RH: this.normalizeOptionalText(payload.sangueTpRh),
+        RG: this.normalizeOptionalText(payload.rg),
+        RG_ORGAO: this.normalizeOptionalText(payload.rgOrgao),
+        RG_UF: this.normalizeOptionalText(payload.rgUf),
+        DATAEXPRG: this.toDateValue(payload.dataExpRg),
+        SEXO: this.normalizeOptionalText(payload.sexo),
+        ESTADOCIVIL: this.normalizeOptionalText(payload.estadoCivil),
+        TELEFONE: this.sanitizePhone(payload.telefone),
+        CELULAR: this.sanitizePhone(payload.celular),
+        DATANASCIMENTO: this.toDateValue(payload.dataNascimento),
+        RACA: this.normalizeOptionalText(payload.raca),
+        CELULARII: this.sanitizePhone(payload.celularIi),
+        ENDERECO_ACR: enderecoAcr,
+        COMPLEMENTO_ACR: complementoAcr,
+        BAIRRO_ACR: bairroAcr,
+        CIDADE_ACR: cidadeAcr,
+        ESTADO_ACR: estadoAcr,
+        CEP_ACR: cepAcr,
+        NUMERO_ACR: numeroAcr,
+        NOME_SOCIAL: this.normalizeOptionalText(payload.nomeSocial),
+        ESPECIFICAR_GENERO: this.normalizeOptionalText(payload.especificarGenero),
+        ORIENTACAO_SEXUAL: this.normalizeOptionalText(payload.orientacaoSexual),
+        FOTO_IMG_SET: fotoFoiInformada ? 1 : 0,
+        FOTO_IMG: fotoBuffer
+      }
+    );
+
+    if (enderecoFoiAlterado) {
+      await this.legacyDatabaseService.query(
+        `
+        Update PESSOAS
+        Set
+          ENDERECO_ALTEROU = 1,
+          SOLICITOU_ALT_ENDE = 1
+        Where
+          CPF = @CPF
+        `,
+        { CPF: cpfDigits }
+      );
+    }
+
+    return {
+      success: true,
+      message: enderecoFoiAlterado
+        ? "Dados atualizados com sucesso. Alterações de endereço seguirão para análise da equipe responsável."
+        : "Dados atualizados com sucesso."
     };
   }
 

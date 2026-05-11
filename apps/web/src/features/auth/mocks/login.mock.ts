@@ -15,6 +15,7 @@ function delay(ms = 400) {
 export async function mockLogin(_payload: AuthLoginRequest): Promise<AuthTokensResponse> {
   await delay();
   return {
+    cpf: _payload.cpf,
     accessToken: "mock-access-token",
     refreshToken: "mock-refresh-token",
     expiresIn: 900

@@ -1,13 +1,16 @@
-﻿import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
+import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
+import { randomBytes } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
 import { renderPortalEmailTemplate } from "../../../shared/email/portal-email.template";
 import { LoginDto } from "../dto/login.dto";
 import { RecoverPasswordDto } from "../dto/recover-password.dto";
+import { ResetPasswordDto } from "../dto/reset-password.dto";
 import { RefreshTokenDto } from "../dto/refresh-token.dto";
 
 interface PessoaLoginRow {
   CPF: string;
+  SENHA?: string | null;
   EMAIL?: string | null;
   WHATSAPP?: string | null;
 }
@@ -50,6 +53,10 @@ export class AuthService {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
+  private isPasswordComplex(password: string): boolean {
+    return /^(?=.*[A-Z])(?=.*\d).{6,}$/.test(password);
+  }
+
   private isAutenticacaoEnabled(value: SindicatoMailSettingsRow["AUTENTICACAO"]): boolean {
     if (typeof value === "boolean") {
       return value;
@@ -65,6 +72,10 @@ export class AuthService {
         .map(() => chars[Math.floor(Math.random() * chars.length)])
         .join("");
     return `${randomPart(4)}-${randomPart(1)}`;
+  }
+
+  private generateToken(): string {
+    return randomBytes(32).toString("hex");
   }
 
   private maskCpfForEmail(cpfDigits: string): string {
@@ -158,11 +169,44 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
   }
 
   async login(payload: LoginDto) {
+    const cpfDigits = this.sanitizeCpf(payload.cpf);
+    const password = payload.password?.trim();
+
+    if (!cpfDigits) {
+      throw new BadRequestException("CPF é obrigatório.");
+    }
+
+    if (!password) {
+      throw new BadRequestException("Senha é obrigatória.");
+    }
+
+    const rows = await this.legacyDatabaseService.query<PessoaLoginRow>(
+      `
+      Select Top 1
+        CPF,
+        SENHA
+      From
+        PESSOAS_LOGIN
+      Where
+        CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    if (rows.length === 0) {
+      throw new BadRequestException("CPF ou senha inválidos.");
+    }
+
+    const storedPassword = rows[0].SENHA?.trim() ?? "";
+    if (!storedPassword || storedPassword !== password) {
+      throw new BadRequestException("CPF ou senha inválidos.");
+    }
+
     return {
-      message: "Login endpoint scaffolded. Awaiting legacy business-rule validation.",
-      payloadPreview: {
-        cpf: payload.cpf
-      }
+      cpf: cpfDigits,
+      accessToken: this.generateToken(),
+      refreshToken: this.generateToken(),
+      expiresIn: 900
     };
   }
 
@@ -256,6 +300,58 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
         payload.preferredChannel === "email"
           ? "Senha redefinida com sucesso. Enviamos a nova senha para o e-mail cadastrado."
           : "Senha redefinida com sucesso."
+    };
+  }
+
+  async resetPassword(payload: ResetPasswordDto) {
+    const cpfDigits = this.sanitizeCpf(payload.cpf);
+    const newPassword = payload.newPassword?.trim() ?? "";
+
+    if (!cpfDigits) {
+      throw new BadRequestException("CPF é obrigatório.");
+    }
+
+    if (!newPassword) {
+      throw new BadRequestException("Nova senha é obrigatória.");
+    }
+
+    if (!this.isPasswordComplex(newPassword)) {
+      throw new BadRequestException(
+        "A senha deve ter no mínimo 6 caracteres, com pelo menos 1 letra maiúscula e 1 número."
+      );
+    }
+
+    const rows = await this.legacyDatabaseService.query<PessoaLoginRow>(
+      `
+      Select Top 1
+        CPF
+      From
+        PESSOAS_LOGIN
+      Where
+        CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    if (rows.length === 0) {
+      throw new BadRequestException("Usuário não encontrado para redefinição de senha.");
+    }
+
+    await this.legacyDatabaseService.query(
+      `
+      Update PESSOAS_LOGIN
+      Set SENHA = @SENHA
+      Where CPF = @CPF
+      `,
+      {
+        CPF: cpfDigits,
+        SENHA: newPassword
+      }
+    );
+
+    return {
+      success: true,
+      message: "Senha atualizada com sucesso."
     };
   }
 }

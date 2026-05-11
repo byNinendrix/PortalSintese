@@ -1,17 +1,56 @@
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
+import { AtualizarMeusDadosPage } from "../features/atualizar-meus-dados/pages/AtualizarMeusDadosPage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterPage } from "../features/auth/pages/RegisterPage";
+import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
+import { AUTH_SESSION_CHANGED_EVENT, hasAuthSession } from "../features/auth/services/authSession";
 import { ConveniosPage } from "../features/convenios/pages/ConveniosPage";
+import { LgpdOnlinePage } from "../features/lgpd/pages/LgpdOnlinePage";
+import { MainMenuPage } from "../features/menu/pages/MainMenuPage";
+import { MinhasFiliacoesPage } from "../features/minhas-filiacoes/pages/MinhasFiliacoesPage";
 import { ParceirosPage } from "../features/parceiros/pages/ParceirosPage";
 
 export function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => hasAuthSession());
+
+  useEffect(() => {
+    function syncAuthState() {
+      setIsAuthenticated(hasAuthSession());
+    }
+
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, syncAuthState);
+    syncAuthState();
+
+    return () => {
+      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, syncAuthState);
+    };
+  }, []);
+
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<Navigate to={isAuthenticated ? "/menu-principal" : "/login"} replace />} />
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/menu-principal" replace /> : <LoginPage />} />
+        <Route
+          path="/menu-principal"
+          element={isAuthenticated ? <MainMenuPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/redefinir-senha"
+          element={isAuthenticated ? <ResetPasswordPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/atualizar-meus-dados"
+          element={isAuthenticated ? <AtualizarMeusDadosPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/minhas-filiacoes"
+          element={isAuthenticated ? <MinhasFiliacoesPage /> : <Navigate to="/login" replace />}
+        />
+        <Route path="/lgpd-online" element={isAuthenticated ? <LgpdOnlinePage /> : <Navigate to="/login" replace />} />
         <Route path="/cadastro" element={<RegisterPage />} />
         <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
         <Route path="/convenios" element={<ConveniosPage />} />

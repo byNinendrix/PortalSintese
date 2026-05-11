@@ -1,5 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
-import type { AuthLoginRequest, PasswordRecoveryRequest, UserRegistrationRequest } from "@sintese/types";
+import type {
+  AuthLoginRequest,
+  PasswordRecoveryRequest,
+  ResetOwnPasswordRequest,
+  UserRegistrationRequest
+} from "@sintese/types";
 import { authService } from "../services/auth.service";
 
 export function useLoginMutation() {
@@ -17,6 +22,12 @@ export function useRegisterMutation() {
 export function useRecoverPasswordMutation() {
   return useMutation({
     mutationFn: (payload: PasswordRecoveryRequest) => authService.recoverPassword(payload)
+  });
+}
+
+export function useResetPasswordMutation() {
+  return useMutation({
+    mutationFn: (payload: ResetOwnPasswordRequest) => authService.resetPassword(payload)
   });
 }
 
