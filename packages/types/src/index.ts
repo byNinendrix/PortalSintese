@@ -10,6 +10,17 @@ export interface AuthTokensResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  isFiliadoAtivo: boolean;
+  associado: string | null;
+  modeloCarteira: string | null;
+}
+
+export interface AuthSessionDebugResponse {
+  cpf: Cpf;
+  isFiliadoAtivo: boolean;
+  associado: string | null;
+  modeloCarteira: string | null;
+  checkedAt: string;
 }
 
 export interface ResetOwnPasswordRequest {
@@ -80,6 +91,75 @@ export interface FiliacaoSummary {
   descricaoPredio: string;
   regiao: string;
   tempoFiliacao: string;
+}
+
+export interface FichaCadastralPessoa {
+  cpfOculto: string | null;
+  nome: string | null;
+  pai: string | null;
+  mae: string | null;
+  naturalidade: string | null;
+  nacionalidade: string | null;
+  rgOculto: string | null;
+  dataExpRg: string | null;
+  tituloEleitor: string | null;
+  sexo: string | null;
+  endereco: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  cep: string | null;
+  telefone: string | null;
+  celular: string | null;
+  dataNascimento: string | null;
+  dataEmisCarteira: string | null;
+  dataValCarteira: string | null;
+  autorizaEmail: string | null;
+  email: string | null;
+  dataInclusao: string | null;
+  nascimentoExtenso: string | null;
+  estadoCivilDescricao: string | null;
+  instrucao: string | null;
+  complemento: string | null;
+  racaDescricao: string | null;
+  numero: string | null;
+  qrCodeFicha: string | null;
+  fotoImg: string | null;
+}
+
+export interface FichaCadastralFiliacao {
+  situacao: string | null;
+  matricula: string | null;
+  descEmpresa: string | null;
+  descPredio: string | null;
+  filiado: string | null;
+  dataSindicalizacao: string | null;
+  dataDesfiliacao: string | null;
+}
+
+export interface FichaCadastralDependente {
+  nome: string | null;
+  sexo: string | null;
+  dataNascimento: string | null;
+  parentesco: string | null;
+  cpfDependente: string | null;
+}
+
+export interface FichaCadastralSindicato {
+  cnpj: string | null;
+  razaoSocial: string | null;
+  fantasia: string | null;
+  logoImg: string | null;
+}
+
+export interface FichaCadastralResponse {
+  cpf: Cpf;
+  usuario: string;
+  generatedAt: string;
+  pessoa: FichaCadastralPessoa;
+  filiacoes: FichaCadastralFiliacao[];
+  dependentes: FichaCadastralDependente[];
+  sindicato: FichaCadastralSindicato | null;
 }
 
 export interface AtualizarDadosPessoaResponse {

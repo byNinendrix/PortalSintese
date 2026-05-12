@@ -1,4 +1,4 @@
-import type { AuthTokensResponse } from "@sintese/types";
+﻿import type { AuthTokensResponse } from "@sintese/types";
 import type { UserProfileResponse } from "@sintese/types";
 
 const AUTH_SESSION_KEY = "portal_sintese_auth_session";
@@ -12,12 +12,7 @@ function notifyAuthSessionChanged(): void {
   window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));
 }
 
-export function readAuthSession(): AuthTokensResponse | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const raw = window.sessionStorage.getItem(AUTH_SESSION_KEY);
+function parseAuthSession(raw: string | null): AuthTokensResponse | null {
   if (!raw) {
     return null;
   }
@@ -29,12 +24,39 @@ export function readAuthSession(): AuthTokensResponse | null {
   }
 }
 
+function migrateSessionStorageToLocalStorage(): AuthTokensResponse | null {
+  const legacyRaw = window.sessionStorage.getItem(AUTH_SESSION_KEY);
+  const legacySession = parseAuthSession(legacyRaw);
+  if (!legacySession) {
+    return null;
+  }
+
+  window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(legacySession));
+  window.sessionStorage.removeItem(AUTH_SESSION_KEY);
+  return legacySession;
+}
+
+export function readAuthSession(): AuthTokensResponse | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const localSession = parseAuthSession(window.localStorage.getItem(AUTH_SESSION_KEY));
+  if (localSession) {
+    return localSession;
+  }
+
+  return migrateSessionStorageToLocalStorage();
+}
+
 export function saveAuthSession(payload: AuthTokensResponse): void {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(payload));
+  const serialized = JSON.stringify(payload);
+  window.localStorage.setItem(AUTH_SESSION_KEY, serialized);
+  window.sessionStorage.removeItem(AUTH_SESSION_KEY);
   notifyAuthSessionChanged();
 }
 
@@ -43,17 +65,22 @@ export function clearAuthSession(): void {
     return;
   }
 
+  window.localStorage.removeItem(AUTH_SESSION_KEY);
   window.sessionStorage.removeItem(AUTH_SESSION_KEY);
 
-  const keysToRemove: string[] = [];
-  for (let index = 0; index < window.sessionStorage.length; index += 1) {
-    const key = window.sessionStorage.key(index);
-    if (key?.startsWith(USER_PROFILE_CACHE_PREFIX)) {
-      keysToRemove.push(key);
+  const removePrefixedKeys = (storage: Storage) => {
+    const keysToRemove: string[] = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key?.startsWith(USER_PROFILE_CACHE_PREFIX)) {
+        keysToRemove.push(key);
+      }
     }
-  }
+    keysToRemove.forEach((key) => storage.removeItem(key));
+  };
 
-  keysToRemove.forEach((key) => window.sessionStorage.removeItem(key));
+  removePrefixedKeys(window.localStorage);
+  removePrefixedKeys(window.sessionStorage);
   notifyAuthSessionChanged();
 }
 
@@ -71,13 +98,26 @@ export function readCachedUserProfile(cpf: string): UserProfileResponse | null {
     return null;
   }
 
-  const raw = window.sessionStorage.getItem(`${USER_PROFILE_CACHE_PREFIX}${cpfDigits}`);
-  if (!raw) {
+  const storageKey = `${USER_PROFILE_CACHE_PREFIX}${cpfDigits}`;
+  const localRaw = window.localStorage.getItem(storageKey);
+  if (localRaw) {
+    try {
+      return JSON.parse(localRaw) as UserProfileResponse;
+    } catch {
+      window.localStorage.removeItem(storageKey);
+    }
+  }
+
+  const legacyRaw = window.sessionStorage.getItem(storageKey);
+  if (!legacyRaw) {
     return null;
   }
 
   try {
-    return JSON.parse(raw) as UserProfileResponse;
+    const parsed = JSON.parse(legacyRaw) as UserProfileResponse;
+    window.localStorage.setItem(storageKey, legacyRaw);
+    window.sessionStorage.removeItem(storageKey);
+    return parsed;
   } catch {
     return null;
   }
@@ -93,5 +133,8 @@ export function saveCachedUserProfile(profile: UserProfileResponse): void {
     return;
   }
 
-  window.sessionStorage.setItem(`${USER_PROFILE_CACHE_PREFIX}${cpfDigits}`, JSON.stringify(profile));
+  const storageKey = `${USER_PROFILE_CACHE_PREFIX}${cpfDigits}`;
+  const serialized = JSON.stringify(profile);
+  window.localStorage.setItem(storageKey, serialized);
+  window.sessionStorage.removeItem(storageKey);
 }

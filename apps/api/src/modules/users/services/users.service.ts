@@ -28,6 +28,66 @@ interface FiliacaoRow {
   REGIAO?: string | null;
 }
 
+interface FichaCadastralPessoaRow {
+  CPFOCULTO?: string | null;
+  NOME?: string | null;
+  PAI?: string | null;
+  MAE?: string | null;
+  NATURALIDADE?: string | null;
+  NACIONALIDADE?: string | null;
+  RGOCULTO?: string | null;
+  DATAEXPRG?: Date | string | null;
+  TITULOELEITOR?: string | null;
+  SEXO?: string | null;
+  ENDERECO?: string | null;
+  BAIRRO?: string | null;
+  CIDADE?: string | null;
+  ESTADO?: string | null;
+  CEP?: string | null;
+  TELEFONE?: string | null;
+  CELULAR?: string | null;
+  DATANASCIMENTO?: Date | string | null;
+  DATAEMISCARTEIRA?: Date | string | null;
+  DATAVALCARTEIRA?: Date | string | null;
+  AUTORIZAEMAIL?: string | null;
+  EMAIL?: string | null;
+  DATAINCLUSAO?: Date | string | null;
+  NASCIMENTO_EXTENSO?: string | null;
+  DESCRICAO?: string | null;
+  INSTRUCAO?: string | null;
+  COMPLEMENTO?: string | null;
+  DESCRACA?: string | null;
+  NUMERO?: string | number | null;
+  QRCODE_FICHA?: string | null;
+  FOTOIMG?: Buffer | string | null;
+}
+
+interface FichaCadastralFiliacaoRow {
+  SITUACAO?: string | null;
+  MATRICULA?: string | number | null;
+  DESCEMPRESA?: string | null;
+  DESCPREDIO?: string | null;
+  FILIADO?: string | null;
+  DATASINDICALIZACAO?: Date | string | null;
+  DATADESFILIACAO?: Date | string | null;
+}
+
+interface FichaCadastralDependenteRow {
+  NOME?: string | null;
+  SEXO?: string | null;
+  DATANASCIMENTO?: Date | string | null;
+  DESCRICAO?: string | null;
+  CPFDEPENDENTE?: string | null;
+  CPF?: string | null;
+}
+
+interface FichaCadastralSindicatoRow {
+  CNPJ?: string | null;
+  RAZAO_SOCIAL?: string | null;
+  FANTASIA?: string | null;
+  LOGO?: Buffer | string | null;
+}
+
 interface AtualizarDadosPessoaRow {
   CPF: string;
   NOME?: string | null;
@@ -184,6 +244,44 @@ export class UsersService {
 
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+  }
+
+  private toDateTimeIso(value: Date | string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    const raw = String(value).trim();
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString();
+  }
+
+  private normalizeScalar(
+    value: string | number | boolean | Date | Buffer | null | undefined
+  ): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    if (Buffer.isBuffer(value)) {
+      const decoded = value.toString("utf8").trim();
+      return decoded.length > 0 ? decoded : null;
+    }
+
+    const normalized = String(value).trim();
+    return normalized.length > 0 ? normalized : null;
   }
 
   private toFotoDataUrl(value: Buffer | string | null | undefined): string | null {
@@ -515,6 +613,253 @@ Por segurança, altere essa senha no primeiro acesso.`;
     }));
   }
 
+  async getFichaCadastralByCpf(cpf?: string, usuario?: string) {
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+    const usuarioPermissao = (usuario ?? cpfDigits).trim();
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const pessoaRows = await this.legacyDatabaseService.query<FichaCadastralPessoaRow>(
+      `
+      With
+        UsuarioPermissao As (
+          Select Top 1
+            USUARIO_PERMISSAO.USUARIO,
+            IsNull(USUARIO_PERMISSAO.ANONIMIZAR_CPF, 0) As anonimizar
+          From
+            USUARIO_PERMISSAO
+          Where
+            USUARIO_PERMISSAO.USUARIO = @USUARIO
+        )
+      Select Top 1
+        dbo.cpf_anonimizar(PESSOAS.CPF, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As CPFOCULTO,
+        dbo.AnonimizaNome(IsNull(PESSOAS.NOME_SOCIAL, PESSOAS.NOME), IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As NOME,
+        dbo.AnonimizaNome(PESSOAS.PAI, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As PAI,
+        dbo.AnonimizaNome(PESSOAS.MAE, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As MAE,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else PESSOAS.NATURALIDADE
+        End As NATURALIDADE,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else PESSOAS.NACIONALIDADE
+        End As NACIONALIDADE,
+        dbo.RG_ANONIMIZAR(PESSOAS.RG, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As RGOCULTO,
+        dbo.OcultarData(PESSOAS.DATAEXPRG, PESSOAS.ANONIMIZAR) As DATAEXPRG,
+        dbo.TITULO_ELEITOR_ANONIMIZA(PESSOAS.TITULOELEITOR, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As TITULOELEITOR,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else PESSOAS.SEXO
+        End As SEXO,
+        dbo.AnonimizaNome(PESSOAS.ENDERECO, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As ENDERECO,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else PESSOAS.BAIRRO
+        End As BAIRRO,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else PESSOAS.CIDADE
+        End As CIDADE,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else PESSOAS.ESTADO
+        End As ESTADO,
+        dbo.cep_anonimizar(PESSOAS.CEP, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As CEP,
+        dbo.TELEFONE_ANONIMIZAR(PESSOAS.TELEFONE, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As TELEFONE,
+        dbo.TELEFONE_ANONIMIZAR(PESSOAS.CELULAR, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As CELULAR,
+        dbo.DATA_NASCIMENTO_ANONIMIZA(PESSOAS.DATANASCIMENTO, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As DATANASCIMENTO,
+        PESSOAS.DATAEMISCARTEIRA,
+        PESSOAS.DATAVALCARTEIRA,
+        Case
+          When PESSOAS.AUTORIZAEMAIL = 0 Then 'Não'
+          Else 'Sim'
+        End As AUTORIZAEMAIL,
+        dbo.EMAIL_ANONIMIZAR(PESSOAS.EMAIL, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As EMAIL,
+        dbo.DATA_NASCIMENTO_ANONIMIZA(PESSOAS.DATAINCLUSAO, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As DATAINCLUSAO,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else dbo.idadeextenso(IsNull(PESSOAS.DATANASCIMENTO, GetDate()), GetDate())
+        End As NASCIMENTO_EXTENSO,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else ESTADOCIVIL.DESCRICAO
+        End As DESCRICAO,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else GRAU_INSTRUCAO.DESCRICAO
+        End As INSTRUCAO,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else PESSOAS.COMPLEMENTO
+        End As COMPLEMENTO,
+        Case
+          When IsNull(UsuarioPermissao.anonimizar, 0) = 1 Or IsNull(PESSOAS.ANONIMIZAR, 0) = 1 Then 'Null'
+          Else RACA.DESCRICAO
+        End As DESCRACA,
+        PESSOAS.NUMERO,
+        PESSOAS.QRCODE_FICHA,
+        PESSOAS.FOTO_IMG As FOTOIMG
+      From
+        PESSOAS
+        Left Join ESTADOCIVIL On PESSOAS.ESTADOCIVIL = ESTADOCIVIL.CODIGO
+        Left Join GRAU_INSTRUCAO On PESSOAS.GRAUINSTRUCAO = GRAU_INSTRUCAO.CODIGO
+        Left Join RACA On PESSOAS.RACA = RACA.CODIGO
+        Left Join UsuarioPermissao On 1 = 1
+      Where
+        PESSOAS.CPF = @CPF
+        And (PESSOAS.BLOQ_DADOS <> 1 Or PESSOAS.BLOQ_DADOS Is Null)
+      Order By
+        dbo.AnonimizaNome(IsNull(PESSOAS.NOME_SOCIAL, PESSOAS.NOME), IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0))
+      `,
+      {
+        CPF: cpfDigits,
+        USUARIO: usuarioPermissao
+      }
+    );
+
+    if (pessoaRows.length === 0) {
+      throw new BadRequestException("Não foi possível gerar a ficha cadastral para o CPF informado.");
+    }
+
+    const filiacoesRows = await this.legacyDatabaseService.query<FichaCadastralFiliacaoRow>(
+      `
+      Select
+        SITUACAO_FILIADO.DESCRICAO As SITUACAO,
+        FILIADO.MATRICULA,
+        Cast(FILIADO.CODIGO_EMPRESA As VarChar(20)) + ' - ' + IsNull(EMPRESA.DESCRICAO, '') As DESCEMPRESA,
+        Cast(FILIADO.CODIGO_PREDIO As VarChar(20)) + ' - ' + IsNull(PREDIO.DESCRICAO, '') As DESCPREDIO,
+        Case
+          When FILIADO.ASSOCIADO = -1 Then 'Sim'
+          Else 'Não'
+        End As FILIADO,
+        FILIADO.DATASINDICALIZACAO,
+        FILIADO.DATADESFILIACAO
+      From
+        FILIADO
+        Inner Join EMPRESA On FILIADO.CODIGO_EMPRESA = EMPRESA.CODIGO
+        Inner Join PREDIO On FILIADO.CODIGO_EMPRESA = PREDIO.CODIGO_EMPRESA
+          And FILIADO.CODIGO_PREDIO = PREDIO.CODIGO
+        Inner Join SITUACAO_FILIADO On FILIADO.SITUACAO = SITUACAO_FILIADO.CODIGO
+      Where
+        FILIADO.CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    const dependentesRows = await this.legacyDatabaseService.query<FichaCadastralDependenteRow>(
+      `
+      With
+        UsuarioPermissao As (
+          Select Top 1
+            USUARIO_PERMISSAO.USUARIO,
+            IsNull(USUARIO_PERMISSAO.ANONIMIZAR_CPF, 0) As anonimizar
+          From
+            USUARIO_PERMISSAO
+          Where
+            USUARIO_PERMISSAO.USUARIO = @USUARIO
+        )
+      Select
+        dbo.AnonimizaNome(DEPENDENTES.NOME, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As NOME,
+        DEPENDENTES.SEXO,
+        dbo.DATA_NASCIMENTO_ANONIMIZA(DEPENDENTES.DATANASCIMENTO, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As DATANASCIMENTO,
+        GRAU_PARENTESCO.DESCRICAO,
+        dbo.cpf_anonimizar(DEPENDENTES.CPF, IsNull(UsuarioPermissao.anonimizar, 0) | IsNull(PESSOAS.ANONIMIZAR, 0)) As CPFDEPENDENTE,
+        PESSOAS.CPF
+      From
+        DEPENDENTES
+        Inner Join GRAU_PARENTESCO On DEPENDENTES.GRAUPARENTESCO = GRAU_PARENTESCO.CODIGO
+        Inner Join PESSOAS On DEPENDENTES.CPF = PESSOAS.CPF
+        Left Join UsuarioPermissao On 1 = 1
+      Where
+        PESSOAS.CPF = @CPF
+      `,
+      {
+        CPF: cpfDigits,
+        USUARIO: usuarioPermissao
+      }
+    );
+
+    const sindicatoRows = await this.legacyDatabaseService.query<FichaCadastralSindicatoRow>(
+      `
+      Select Top 1
+        SINDICATO.CNPJ,
+        SINDICATO.RAZAO_SOCIAL,
+        SINDICATO.FANTASIA,
+        SINDICATO.LOGO
+      From
+        SINDICATO
+      `
+    );
+
+    const pessoa = pessoaRows[0];
+    const sindicato = sindicatoRows[0];
+
+    return {
+      cpf: this.maskCpf(cpfDigits),
+      usuario: usuarioPermissao,
+      generatedAt: new Date().toISOString(),
+      pessoa: {
+        cpfOculto: this.normalizeScalar(pessoa.CPFOCULTO),
+        nome: this.normalizeScalar(pessoa.NOME),
+        pai: this.normalizeScalar(pessoa.PAI),
+        mae: this.normalizeScalar(pessoa.MAE),
+        naturalidade: this.normalizeScalar(pessoa.NATURALIDADE),
+        nacionalidade: this.normalizeScalar(pessoa.NACIONALIDADE),
+        rgOculto: this.normalizeScalar(pessoa.RGOCULTO),
+        dataExpRg: this.toDateTimeIso(pessoa.DATAEXPRG),
+        tituloEleitor: this.normalizeScalar(pessoa.TITULOELEITOR),
+        sexo: this.normalizeScalar(pessoa.SEXO),
+        endereco: this.normalizeScalar(pessoa.ENDERECO),
+        bairro: this.normalizeScalar(pessoa.BAIRRO),
+        cidade: this.normalizeScalar(pessoa.CIDADE),
+        estado: this.normalizeScalar(pessoa.ESTADO),
+        cep: this.normalizeScalar(pessoa.CEP),
+        telefone: this.normalizeScalar(pessoa.TELEFONE),
+        celular: this.normalizeScalar(pessoa.CELULAR),
+        dataNascimento: this.toDateTimeIso(pessoa.DATANASCIMENTO),
+        dataEmisCarteira: this.toDateTimeIso(pessoa.DATAEMISCARTEIRA),
+        dataValCarteira: this.toDateTimeIso(pessoa.DATAVALCARTEIRA),
+        autorizaEmail: this.normalizeScalar(pessoa.AUTORIZAEMAIL),
+        email: this.normalizeScalar(pessoa.EMAIL),
+        dataInclusao: this.toDateTimeIso(pessoa.DATAINCLUSAO),
+        nascimentoExtenso: this.normalizeScalar(pessoa.NASCIMENTO_EXTENSO),
+        estadoCivilDescricao: this.normalizeScalar(pessoa.DESCRICAO),
+        instrucao: this.normalizeScalar(pessoa.INSTRUCAO),
+        complemento: this.normalizeScalar(pessoa.COMPLEMENTO),
+        racaDescricao: this.normalizeScalar(pessoa.DESCRACA),
+        numero: this.normalizeScalar(pessoa.NUMERO),
+        qrCodeFicha: this.normalizeScalar(pessoa.QRCODE_FICHA),
+        fotoImg: this.toFotoDataUrl(pessoa.FOTOIMG)
+      },
+      filiacoes: filiacoesRows.map((row) => ({
+        situacao: this.normalizeScalar(row.SITUACAO),
+        matricula: this.normalizeScalar(row.MATRICULA),
+        descEmpresa: this.normalizeScalar(row.DESCEMPRESA),
+        descPredio: this.normalizeScalar(row.DESCPREDIO),
+        filiado: this.normalizeScalar(row.FILIADO),
+        dataSindicalizacao: this.toDateTimeIso(row.DATASINDICALIZACAO),
+        dataDesfiliacao: this.toDateTimeIso(row.DATADESFILIACAO)
+      })),
+      dependentes: dependentesRows.map((row) => ({
+        nome: this.normalizeScalar(row.NOME),
+        sexo: this.normalizeScalar(row.SEXO),
+        dataNascimento: this.toDateTimeIso(row.DATANASCIMENTO),
+        parentesco: this.normalizeScalar(row.DESCRICAO),
+        cpfDependente: this.normalizeScalar(row.CPFDEPENDENTE)
+      })),
+      sindicato: sindicato
+        ? {
+            cnpj: this.normalizeScalar(sindicato.CNPJ),
+            razaoSocial: this.normalizeScalar(sindicato.RAZAO_SOCIAL),
+            fantasia: this.normalizeScalar(sindicato.FANTASIA),
+            logoImg: this.toFotoDataUrl(sindicato.LOGO)
+          }
+        : null
+    };
+  }
+
   async getAtualizarDadosByCpf(cpf?: string) {
     const cpfDigits = this.sanitizeCpf(cpf ?? "");
 
@@ -842,6 +1187,14 @@ Por segurança, altere essa senha no primeiro acesso.`;
         ESTADO_ACR = @ESTADO_ACR,
         CEP_ACR = @CEP_ACR,
         NUMERO_ACR = @NUMERO_ACR,
+        ENDERECO_ALTEROU = Case
+          When @ENDERECO_ALTERADO_SET = 1 Then 1
+          Else ENDERECO_ALTEROU
+        End,
+        SOLICITOU_ALT_ENDE = Case
+          When @ENDERECO_ALTERADO_SET = 1 Then 1
+          Else SOLICITOU_ALT_ENDE
+        End,
         NOME_SOCIAL = @NOME_SOCIAL,
         ESPECIFICAR_GENERO = @ESPECIFICAR_GENERO,
         ORIENTACAO_SEXUAL = @ORIENTACAO_SEXUAL,
@@ -876,6 +1229,7 @@ Por segurança, altere essa senha no primeiro acesso.`;
         ESTADO_ACR: estadoAcr,
         CEP_ACR: cepAcr,
         NUMERO_ACR: numeroAcr,
+        ENDERECO_ALTERADO_SET: enderecoFoiAlterado ? 1 : 0,
         NOME_SOCIAL: this.normalizeOptionalText(payload.nomeSocial),
         ESPECIFICAR_GENERO: this.normalizeOptionalText(payload.especificarGenero),
         ORIENTACAO_SEXUAL: this.normalizeOptionalText(payload.orientacaoSexual),
@@ -883,20 +1237,6 @@ Por segurança, altere essa senha no primeiro acesso.`;
         FOTO_IMG: fotoBuffer
       }
     );
-
-    if (enderecoFoiAlterado) {
-      await this.legacyDatabaseService.query(
-        `
-        Update PESSOAS
-        Set
-          ENDERECO_ALTEROU = 1,
-          SOLICITOU_ALT_ENDE = 1
-        Where
-          CPF = @CPF
-        `,
-        { CPF: cpfDigits }
-      );
-    }
 
     return {
       success: true,

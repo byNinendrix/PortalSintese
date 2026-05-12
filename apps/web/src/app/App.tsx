@@ -6,8 +6,10 @@ import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
+import { SessionDebugPage } from "../features/auth/pages/SessionDebugPage";
 import { AUTH_SESSION_CHANGED_EVENT, hasAuthSession } from "../features/auth/services/authSession";
 import { ConveniosPage } from "../features/convenios/pages/ConveniosPage";
+import { FichaCadastralPage } from "../features/ficha-cadastral/pages/FichaCadastralPage";
 import { LgpdOnlinePage } from "../features/lgpd/pages/LgpdOnlinePage";
 import { MainMenuPage } from "../features/menu/pages/MainMenuPage";
 import { MinhasFiliacoesPage } from "../features/minhas-filiacoes/pages/MinhasFiliacoesPage";
@@ -21,11 +23,19 @@ export function App() {
       setIsAuthenticated(hasAuthSession());
     }
 
+    function onStorage(event: StorageEvent) {
+      if (event.key === "portal_sintese_auth_session") {
+        syncAuthState();
+      }
+    }
+
     window.addEventListener(AUTH_SESSION_CHANGED_EVENT, syncAuthState);
+    window.addEventListener("storage", onStorage);
     syncAuthState();
 
     return () => {
       window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, syncAuthState);
+      window.removeEventListener("storage", onStorage);
     };
   }, []);
 
@@ -49,6 +59,14 @@ export function App() {
         <Route
           path="/minhas-filiacoes"
           element={isAuthenticated ? <MinhasFiliacoesPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/ficha-cadastral"
+          element={isAuthenticated ? <FichaCadastralPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/debug-sessao"
+          element={isAuthenticated ? <SessionDebugPage /> : <Navigate to="/login" replace />}
         />
         <Route path="/lgpd-online" element={isAuthenticated ? <LgpdOnlinePage /> : <Navigate to="/login" replace />} />
         <Route path="/cadastro" element={<RegisterPage />} />

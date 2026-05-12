@@ -161,7 +161,9 @@ export function AtualizarMeusDadosPage() {
   const [cepLookupFeedback, setCepLookupFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
     null
   );
-  const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error" | "info"; message: string } | null>(
+    null
+  );
   const [addressChangeConfirmModal, setAddressChangeConfirmModal] = useState<{
     message: string;
     resolve: (confirmed: boolean) => void;
@@ -412,7 +414,7 @@ export function AtualizarMeusDadosPage() {
 
         if (!confirmarSubstituicao) {
           setSaveFeedback({
-            type: "error",
+            type: "info",
             message: "Solicitação atual de alteração de endereço mantida. Nenhuma substituição foi realizada."
           });
           return;
@@ -949,7 +951,13 @@ export function AtualizarMeusDadosPage() {
 
       {saveFeedback ? (
         <div
-          className={`${saveFeedback.type === "success" ? "alert-success" : "alert-error"} mt-3`}
+          className={`${
+            saveFeedback.type === "success"
+              ? "alert-success"
+              : saveFeedback.type === "info"
+                ? "alert-info"
+                : "alert-error"
+          } mt-3`}
           role="status"
           aria-live="polite"
         >

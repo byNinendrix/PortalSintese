@@ -15,6 +15,12 @@ interface PessoaLoginRow {
   WHATSAPP?: string | null;
 }
 
+interface FiliacaoAtivaRow {
+  CPF: string;
+  ASSOCIADO?: string | number | boolean | Date | Buffer | null;
+  MODELO_CARTEIRA?: string | number | boolean | Date | Buffer | null;
+}
+
 interface SindicatoMailSettingsRow {
   AUTENTICACAO: string | number | boolean | null;
   SMTP_SERVIDOR: string | null;
@@ -23,6 +29,12 @@ interface SindicatoMailSettingsRow {
   NOME_EMAIL: string | null;
   USUARIO_EMAIL: string | null;
   SENHA_EMAIL: string | null;
+}
+
+interface FiliacaoAtivaSnapshot {
+  isFiliadoAtivo: boolean;
+  associado: string | null;
+  modeloCarteira: string | null;
 }
 
 @Injectable()
@@ -78,6 +90,50 @@ export class AuthService {
     return randomBytes(32).toString("hex");
   }
 
+  private normalizeNullableScalar(value: string | number | boolean | Date | Buffer | null | undefined): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    if (Buffer.isBuffer(value)) {
+      const text = value.toString("utf8").trim();
+      return text.length > 0 ? text : null;
+    }
+
+    const text = String(value).trim();
+    return text.length > 0 ? text : null;
+  }
+
+  private async getFiliacaoAtivaSnapshot(cpfDigits: string): Promise<FiliacaoAtivaSnapshot> {
+    const filiacaoAtivaRows = await this.legacyDatabaseService.query<FiliacaoAtivaRow>(
+      `
+      Select Top 1
+        FILIADO.CPF,
+        FILIADO.ASSOCIADO,
+        PESSOAS.MODELO_CARTEIRA
+      From
+        FILIADO
+        Inner Join
+        PESSOAS On FILIADO.CPF = PESSOAS.CPF
+      Where
+        FILIADO.CPF = @CPF
+        And FILIADO.ASSOCIADO = -1
+      `,
+      { CPF: cpfDigits }
+    );
+
+    const filiacaoAtiva = filiacaoAtivaRows[0];
+    return {
+      isFiliadoAtivo: filiacaoAtivaRows.length > 0,
+      associado: this.normalizeNullableScalar(filiacaoAtiva?.ASSOCIADO),
+      modeloCarteira: this.normalizeNullableScalar(filiacaoAtiva?.MODELO_CARTEIRA)
+    };
+  }
+
   private maskCpfForEmail(cpfDigits: string): string {
     if (cpfDigits.length !== 11) {
       return cpfDigits;
@@ -100,7 +156,7 @@ export class AuthService {
     `);
 
     if (rows.length === 0) {
-      throw new InternalServerErrorException("Configuração de e-mail não encontrada na tabela SINDICATO.");
+      throw new InternalServerErrorException("ConfiguraÃ§Ã£o de e-mail nÃ£o encontrada na tabela SINDICATO.");
     }
 
     return rows[0];
@@ -110,7 +166,7 @@ export class AuthService {
     const settings = await this.getSindicatoMailSettings();
 
     if (!settings.SMTP_SERVIDOR || !settings.SMTP_PORTA || !settings.EMAIL) {
-      throw new InternalServerErrorException("Configuração SMTP incompleta na tabela SINDICATO.");
+      throw new InternalServerErrorException("ConfiguraÃ§Ã£o SMTP incompleta na tabela SINDICATO.");
     }
 
     const port = Number(settings.SMTP_PORTA);
@@ -138,13 +194,13 @@ export class AuthService {
     const text = `Sr(a).: ${maskedCpf}
 Segue conforme solicitado sua nova senha de acesso ao portal do(a) filiado(a): ${payload.password}
 
-Por favor, altere a senha assim que possível para garantir a segurança do seu acesso.`;
+Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do seu acesso.`;
 
     const html = renderPortalEmailTemplate({
-      title: "Redefinição de senha",
+      title: "RedefiniÃ§Ã£o de senha",
       subtitle: "Nova senha de acesso",
       tone: "info",
-      identificationLabel: "Identificação",
+      identificationLabel: "IdentificaÃ§Ã£o",
       identificationValue: `CPF: ${maskedCpf}`,
       contentHtml: `
         <p style="margin:0 0 12px 0;">Sr(a).: <strong>${maskedCpf}</strong></p>
@@ -154,7 +210,7 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
             ${payload.password}
           </span>
         </p>
-        <p style="margin:0;">Por favor, altere a senha assim que possível para garantir a segurança do seu acesso.</p>
+        <p style="margin:0;">Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do seu acesso.</p>
       `,
       footerText: "Portal do Filiad@ | SINTESE"
     });
@@ -173,11 +229,11 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
     const password = payload.password?.trim();
 
     if (!cpfDigits) {
-      throw new BadRequestException("CPF é obrigatório.");
+      throw new BadRequestException("CPF Ã© obrigatÃ³rio.");
     }
 
     if (!password) {
-      throw new BadRequestException("Senha é obrigatória.");
+      throw new BadRequestException("Senha Ã© obrigatÃ³ria.");
     }
 
     const rows = await this.legacyDatabaseService.query<PessoaLoginRow>(
@@ -194,7 +250,7 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
     );
 
     if (rows.length === 0) {
-      throw new BadRequestException("CPF ou senha inválidos.");
+      throw new BadRequestException("CPF ou senha invÃ¡lidos.");
     }
 
     const storedPassword = rows[0].SENHA?.trim() ?? "";
@@ -202,11 +258,32 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
       throw new BadRequestException("CPF ou senha inválidos.");
     }
 
+    const filiacaoAtiva = await this.getFiliacaoAtivaSnapshot(cpfDigits);
+
     return {
       cpf: cpfDigits,
       accessToken: this.generateToken(),
       refreshToken: this.generateToken(),
-      expiresIn: 900
+      expiresIn: 900,
+      isFiliadoAtivo: filiacaoAtiva.isFiliadoAtivo,
+      associado: filiacaoAtiva.associado,
+      modeloCarteira: filiacaoAtiva.modeloCarteira
+    };
+  }
+
+  async getSessionByCpf(cpf: string) {
+    const cpfDigits = this.sanitizeCpf(cpf);
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const session = await this.getFiliacaoAtivaSnapshot(cpfDigits);
+    return {
+      cpf: cpfDigits,
+      isFiliadoAtivo: session.isFiliadoAtivo,
+      associado: session.associado,
+      modeloCarteira: session.modeloCarteira,
+      checkedAt: new Date().toISOString()
     };
   }
 
@@ -219,7 +296,7 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
   async recoverPassword(payload: RecoverPasswordDto) {
     const cpfDigits = this.sanitizeCpf(payload.cpf);
     if (!cpfDigits) {
-      throw new BadRequestException("CPF é obrigatório.");
+      throw new BadRequestException("CPF Ã© obrigatÃ³rio.");
     }
 
     const rows = await this.legacyDatabaseService.query<PessoaLoginRow>(
@@ -237,7 +314,7 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
     );
 
     if (rows.length === 0) {
-      throw new BadRequestException("O CPF informado não foi localizado em nosso sistema.");
+      throw new BadRequestException("O CPF informado nÃ£o foi localizado em nosso sistema.");
     }
 
     const user = rows[0];
@@ -247,29 +324,29 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
     if (payload.preferredChannel === "email") {
       const email = this.normalizeEmail(payload.email);
       if (!email) {
-        throw new BadRequestException("E-mail é obrigatório.");
+        throw new BadRequestException("E-mail Ã© obrigatÃ³rio.");
       }
       if (!this.isEmailValid(email)) {
-        throw new BadRequestException("E-mail inválido.");
+        throw new BadRequestException("E-mail invÃ¡lido.");
       }
       if (!dbEmail) {
-        throw new BadRequestException("Não existe e-mail cadastrado para este CPF.");
+        throw new BadRequestException("NÃ£o existe e-mail cadastrado para este CPF.");
       }
       if (dbEmail !== email) {
-        throw new BadRequestException("O e-mail informado não confere com o cadastro.");
+        throw new BadRequestException("O e-mail informado nÃ£o confere com o cadastro.");
       }
     }
 
     if (payload.preferredChannel === "whatsapp") {
       const whatsapp = this.sanitizePhone(payload.whatsapp);
       if (!whatsapp) {
-        throw new BadRequestException("Número de WhatsApp é obrigatório.");
+        throw new BadRequestException("NÃºmero de WhatsApp Ã© obrigatÃ³rio.");
       }
       if (!dbWhatsapp) {
-        throw new BadRequestException("Não existe WhatsApp cadastrado para este CPF.");
+        throw new BadRequestException("NÃ£o existe WhatsApp cadastrado para este CPF.");
       }
       if (dbWhatsapp !== whatsapp) {
-        throw new BadRequestException("O número de WhatsApp informado não confere com o cadastro.");
+        throw new BadRequestException("O nÃºmero de WhatsApp informado nÃ£o confere com o cadastro.");
       }
     }
 
@@ -308,16 +385,16 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
     const newPassword = payload.newPassword?.trim() ?? "";
 
     if (!cpfDigits) {
-      throw new BadRequestException("CPF é obrigatório.");
+      throw new BadRequestException("CPF Ã© obrigatÃ³rio.");
     }
 
     if (!newPassword) {
-      throw new BadRequestException("Nova senha é obrigatória.");
+      throw new BadRequestException("Nova senha Ã© obrigatÃ³ria.");
     }
 
     if (!this.isPasswordComplex(newPassword)) {
       throw new BadRequestException(
-        "A senha deve ter no mínimo 6 caracteres, com pelo menos 1 letra maiúscula e 1 número."
+        "A senha deve ter no mÃ­nimo 6 caracteres, com pelo menos 1 letra maiÃºscula e 1 nÃºmero."
       );
     }
 
@@ -334,7 +411,7 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
     );
 
     if (rows.length === 0) {
-      throw new BadRequestException("Usuário não encontrado para redefinição de senha.");
+      throw new BadRequestException("UsuÃ¡rio nÃ£o encontrado para redefiniÃ§Ã£o de senha.");
     }
 
     await this.legacyDatabaseService.query(
@@ -355,3 +432,4 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
     };
   }
 }
+

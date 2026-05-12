@@ -1,5 +1,6 @@
 import type {
   AuthLoginRequest,
+  AuthSessionDebugResponse,
   AuthTokensResponse,
   CpfCheckResponse,
   PasswordRecoveryRequest,
@@ -14,6 +15,7 @@ import { mockLogin, mockRecoverPassword, mockRegister } from "../mocks/login.moc
 
 export interface AuthService {
   login(payload: AuthLoginRequest): Promise<AuthTokensResponse>;
+  getSessionDebug(cpf: string): Promise<AuthSessionDebugResponse>;
   register(payload: UserRegistrationRequest): Promise<{ success: true }>;
   recoverPassword(payload: PasswordRecoveryRequest): Promise<PasswordRecoveryResponse>;
   resetPassword(payload: ResetOwnPasswordRequest): Promise<ResetOwnPasswordResponse>;
@@ -29,6 +31,23 @@ class AuthServiceImpl implements AuthService {
       method: "POST",
       body: JSON.stringify(payload)
     });
+  }
+
+  async getSessionDebug(cpf: string): Promise<AuthSessionDebugResponse> {
+    const cpfDigits = cpf.replace(/\D/g, "");
+
+    if (USE_MOCKS) {
+      return {
+        cpf: cpfDigits,
+        isFiliadoAtivo: true,
+        associado: "-1",
+        modeloCarteira: null,
+        checkedAt: new Date().toISOString()
+      };
+    }
+
+    const query = new URLSearchParams({ cpf: cpfDigits }).toString();
+    return apiRequest<AuthSessionDebugResponse>(`/auth/me/session?${query}`);
   }
 
   async register(payload: UserRegistrationRequest): Promise<{ success: true }> {

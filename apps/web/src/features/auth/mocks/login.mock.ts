@@ -18,7 +18,10 @@ export async function mockLogin(_payload: AuthLoginRequest): Promise<AuthTokensR
     cpf: _payload.cpf,
     accessToken: "mock-access-token",
     refreshToken: "mock-refresh-token",
-    expiresIn: 900
+    expiresIn: 900,
+    isFiliadoAtivo: true,
+    associado: "-1",
+    modeloCarteira: null
   };
 }
 

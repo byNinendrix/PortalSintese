@@ -24,6 +24,8 @@ export function AppShell({ children }: AppShellProps) {
     pathname === "/redefinir-senha" ||
     pathname === "/atualizar-meus-dados" ||
     pathname === "/minhas-filiacoes" ||
+    pathname === "/ficha-cadastral" ||
+    pathname === "/debug-sessao" ||
     pathname === "/lgpd-online" ||
     pathname === "/cadastro" ||
     pathname === "/recuperar-senha" ||
