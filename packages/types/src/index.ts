@@ -93,6 +93,23 @@ export interface FiliacaoSummary {
   tempoFiliacao: string;
 }
 
+export interface ProtocoloSummary {
+  protocolo: string | null;
+  cpf: Cpf;
+  status: string;
+  matricula01: string | null;
+  codigoEmpresa01: string | null;
+  empresa01: string | null;
+  codigoPredio01: string | null;
+  matricula02: string | null;
+  codigoEmpresa02: string | null;
+  empresa02: string | null;
+  codigoPredio02: string | null;
+  adicionarOutraFiliacao: boolean;
+  fotoContracheque01: string | null;
+  fotoContracheque02: string | null;
+}
+
 export interface FichaCadastralPessoa {
   cpfOculto: string | null;
   nome: string | null;
@@ -160,6 +177,26 @@ export interface FichaCadastralResponse {
   filiacoes: FichaCadastralFiliacao[];
   dependentes: FichaCadastralDependente[];
   sindicato: FichaCadastralSindicato | null;
+}
+
+export interface CarteiraResponse {
+  cpf: Cpf;
+  url: string;
+  qrCodeCarteira: string | null;
+  qrCodeFoiGerado: boolean;
+  carteiraVencida: boolean;
+  dataEmissaoCarteira: string | null;
+  dataValidadeCarteira: string | null;
+  anosValidadeCarteira: number;
+  nome: string | null;
+  cpfExtenso: string | null;
+  cidadeCarteirinha: string | null;
+  sangueTpRh: string | null;
+  fotoImg: string | null;
+  sindicato: {
+    imgCartFrente: string | null;
+    imgCartVerso: string | null;
+  } | null;
 }
 
 export interface AtualizarDadosPessoaResponse {

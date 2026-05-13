@@ -1,5 +1,7 @@
-﻿import { BadRequestException, ConflictException, Injectable, InternalServerErrorException } from "@nestjs/common";
+﻿import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import * as nodemailer from "nodemailer";
+import * as QRCode from "qrcode";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
 import { renderPortalEmailTemplate } from "../../../shared/email/portal-email.template";
 import { CreateUserDto } from "../dto/create-user.dto";
@@ -26,6 +28,23 @@ interface FiliacaoRow {
   DESCRICAO_PREDIO?: string | null;
   tempo_filiacao?: string | null;
   REGIAO?: string | null;
+}
+
+interface ProtocoloRow {
+  PROTOCOLO?: string | null;
+  CPF?: string | null;
+  STATUS?: string | null;
+  MATRICULA_01?: string | number | null;
+  CODIGO_EMPRESA_01?: string | number | null;
+  EMPRESA_01?: string | null;
+  CODIGO_PREDIO_01?: string | number | null;
+  MATRICULA_02?: string | number | null;
+  CODIGO_EMPRESA_02?: string | number | null;
+  EMPRESA_02?: string | null;
+  CODIGO_PREDIO_02?: string | number | null;
+  ADICIONAR_OUTRA_FILIACAO?: string | number | boolean | null;
+  FOTO_CONTRACHEQUE01?: Buffer | string | null;
+  FOTO_CONTRACHEQUE02?: Buffer | string | null;
 }
 
 interface FichaCadastralPessoaRow {
@@ -58,7 +77,7 @@ interface FichaCadastralPessoaRow {
   COMPLEMENTO?: string | null;
   DESCRACA?: string | null;
   NUMERO?: string | number | null;
-  QRCODE_FICHA?: string | null;
+  QRCODE_FICHA?: Buffer | string | null;
   FOTOIMG?: Buffer | string | null;
 }
 
@@ -86,6 +105,38 @@ interface FichaCadastralSindicatoRow {
   RAZAO_SOCIAL?: string | null;
   FANTASIA?: string | null;
   LOGO?: Buffer | string | null;
+  URL?: string | null;
+}
+
+interface PessoaChaveFichaRow {
+  CPF?: string | null;
+  CHAVE?: string | null;
+}
+
+interface SindicatoCarteiraRow {
+  ANO_VALIDADE_CARTEIRA?: string | number | null;
+  EMITE_CARTEIRA?: string | number | boolean | null;
+  URL?: string | null;
+  IMG_CART_F_M?: Buffer | string | null;
+  IMG_CART_V_M?: Buffer | string | null;
+}
+
+interface PessoaCarteiraRow {
+  CPF: string;
+  NOME?: string | null;
+  NOME_SOCIAL?: string | null;
+  DATAVALCARTEIRA?: Date | string | null;
+  DATAEMISCARTEIRA?: Date | string | null;
+  SANGUE_TP_RH?: string | null;
+  CPF_EXTENSO?: string | null;
+  CIDADE_CARTEIRINHA?: string | null;
+  FOTO_IMG?: Buffer | string | null;
+  ID_PESSOA?: string | number | null;
+  QRCODE_CARTEIRA?: Buffer | string | null;
+}
+
+interface SchemaColumnRow {
+  COLUMN_NAME?: string | null;
 }
 
 interface AtualizarDadosPessoaRow {
@@ -180,6 +231,8 @@ interface SindicatoMailSettingsRow {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(private readonly legacyDatabaseService: LegacyDatabaseService) {}
 
   private sanitizeCpf(cpf: string): string {
@@ -282,6 +335,213 @@ export class UsersService {
 
     const normalized = String(value).trim();
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private buildLegacyFichaValidationUrl(baseUrl: string, cpfDigits: string, chave: string): string {
+    const normalizedBase = baseUrl.trim().replace(/\/+$/, "");
+    const filter = `PESSOAS_CHAVE_FICHA.CPF=${cpfDigits};PESSOAS_CHAVE_FICHA.CHAVE=${chave}`;
+    const query = new URLSearchParams({
+      sys: "SIF",
+      action: "openform",
+      formID: "500000781",
+      mode: "-1",
+      goto: "-1",
+      filter,
+      scrolling: "yes"
+    });
+
+    return `${normalizedBase}/form.jsp?${query.toString()}`;
+  }
+
+  private buildLegacyCarteiraUrl(baseUrl: string, cpfDigits: string): string {
+    const normalizedBase = baseUrl.trim().replace(/\/+$/, "");
+    const filter = `CPF=${cpfDigits};`;
+    const query = new URLSearchParams({
+      sys: "SIF",
+      action: "openform",
+      formID: "500000742",
+      mode: "-1",
+      goto: "-1",
+      filter,
+      scrolling: "yes",
+      popup: "true"
+    });
+
+    return `${normalizedBase}/form.jsp?${query.toString()}`;
+  }
+
+  private resolveAnoValidadeCarteira(value: string | number | null | undefined): number {
+    const parsed = Number(value ?? 2);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 2;
+    }
+    return Math.floor(parsed);
+  }
+
+  private toDateStart(value: Date): Date {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+
+  private async resolveFirstExistingColumn(tableName: string, candidates: string[]): Promise<string | null> {
+    const rows = await this.legacyDatabaseService.query<SchemaColumnRow>(
+      `
+      Select
+        INFORMATION_SCHEMA.COLUMNS.COLUMN_NAME
+      From
+        INFORMATION_SCHEMA.COLUMNS
+      Where
+        INFORMATION_SCHEMA.COLUMNS.TABLE_NAME = @TABLE_NAME
+      `,
+      { TABLE_NAME: tableName }
+    );
+
+    const available = new Set(
+      rows
+        .map((row) => this.normalizeScalar(row.COLUMN_NAME)?.toUpperCase() ?? "")
+        .filter((value) => value.length > 0)
+    );
+
+    for (const candidate of candidates) {
+      if (available.has(candidate.toUpperCase())) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private isQrCodeDataUrl(value?: string | null): boolean {
+    return (value ?? "").trim().startsWith("data:image/");
+  }
+
+  private toQrCodeDataUrl(value: Buffer | string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+
+    if (Buffer.isBuffer(value)) {
+      return `data:image/png;base64,${value.toString("base64")}`;
+    }
+
+    const raw = String(value).trim();
+    if (!raw) {
+      return null;
+    }
+
+    if (raw.startsWith("data:image/")) {
+      return raw;
+    }
+
+    if (/^[A-Za-z0-9+/=\r\n]+$/.test(raw) && raw.length > 80) {
+      return `data:image/png;base64,${raw.replace(/\s/g, "")}`;
+    }
+
+    // Compatibilidade com colunas BIN/IMAGE devolvidas como string binária pelo driver.
+    const fromBinary = Buffer.from(raw, "binary").toString("base64");
+    return fromBinary ? `data:image/png;base64,${fromBinary}` : null;
+  }
+
+  private async ensureFichaQrCode(cpfDigits: string, currentQrCode?: Buffer | string | null): Promise<string | null> {
+    const currentDataUrl = this.toQrCodeDataUrl(currentQrCode);
+    if (currentDataUrl) {
+      return currentDataUrl;
+    }
+
+    try {
+      const chaveRows = await this.legacyDatabaseService.query<PessoaChaveFichaRow>(
+        `
+        Select Top 1
+          PESSOAS_CHAVE_FICHA.CPF,
+          PESSOAS_CHAVE_FICHA.CHAVE
+        From
+          PESSOAS_CHAVE_FICHA
+        Where
+          PESSOAS_CHAVE_FICHA.CPF = @CPF
+        `,
+        { CPF: cpfDigits }
+      );
+
+      const chaveExistente = this.normalizeScalar(chaveRows[0]?.CHAVE);
+      const possuiRegistroCpf = chaveRows.length > 0;
+
+      const sindicatoRows = await this.legacyDatabaseService.query<FichaCadastralSindicatoRow>(
+        `
+        Select Top 1
+          SINDICATO.URL
+        From
+          SINDICATO
+        `
+      );
+
+      const sindicatoUrl = this.normalizeScalar(sindicatoRows[0]?.URL);
+      if (!sindicatoUrl) {
+        return null;
+      }
+
+      // Regra solicitada: só grava CHAVE em PESSOAS_CHAVE_FICHA quando estiver nula/vazia.
+      let chave = chaveExistente;
+      if (!chave) {
+        chave = randomUUID().toUpperCase();
+
+        if (possuiRegistroCpf) {
+          await this.legacyDatabaseService.query(
+            `
+            Update PESSOAS_CHAVE_FICHA
+            Set
+              CHAVE = @CHAVE
+            Where
+              CPF = @CPF
+            `,
+            {
+              CPF: cpfDigits,
+              CHAVE: chave
+            }
+          );
+        } else {
+          await this.legacyDatabaseService.query(
+            `
+            Insert Into PESSOAS_CHAVE_FICHA
+              (CPF, CHAVE)
+            Values
+              (@CPF, @CHAVE)
+            `,
+            {
+              CPF: cpfDigits,
+              CHAVE: chave
+            }
+          );
+        }
+      }
+
+      const validationUrl = this.buildLegacyFichaValidationUrl(sindicatoUrl, cpfDigits, chave);
+      const qrCodeDataUrl = await QRCode.toDataURL(validationUrl, {
+        errorCorrectionLevel: "M",
+        margin: 1,
+        width: 220
+      });
+
+      await this.legacyDatabaseService.query(
+        `
+        Update PESSOAS
+        Set
+          QRCODE_FICHA = @QRCODE_FICHA
+        Where
+          CPF = @CPF
+        `,
+        {
+          CPF: cpfDigits,
+          QRCODE_FICHA: qrCodeDataUrl
+        }
+      );
+
+      return qrCodeDataUrl;
+    } catch (error) {
+      this.logger.warn(
+        `Falha ao gerar QRCODE_FICHA para CPF ${cpfDigits}. Mantendo valor atual.`,
+        error instanceof Error ? error.stack : undefined
+      );
+      return this.toQrCodeDataUrl(currentQrCode);
+    }
   }
 
   private toFotoDataUrl(value: Buffer | string | null | undefined): string | null {
@@ -613,6 +873,61 @@ Por segurança, altere essa senha no primeiro acesso.`;
     }));
   }
 
+  async getProtocolosByCpf(cpf?: string) {
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const rows = await this.legacyDatabaseService.query<ProtocoloRow>(
+      `
+      Select
+        AGG_FILIACAO.PROTOCOLO As PROTOCOLO,
+        AGG_FILIACAO.CPF,
+        dbo.StatusSolicitaFiliacao(AGG_FILIACAO.STATUS) As STATUS,
+        AGG_FILIACAO.MATRICULA_ORGAO As MATRICULA_01,
+        AGG_FILIACAO.CODIGO_EMPRESA As CODIGO_EMPRESA_01,
+        EMPRESA.DESCRICAO As EMPRESA_01,
+        AGG_FILIACAO.CODIGO_PREDIO As CODIGO_PREDIO_01,
+        AGG_FILIACAO.MATRICULA_ORGAOI As MATRICULA_02,
+        AGG_FILIACAO.CODIGO_EMPRESAI As CODIGO_EMPRESA_02,
+        EMPRESA1.DESCRICAO As EMPRESA_02,
+        AGG_FILIACAO.CODIGO_PREDIOI As CODIGO_PREDIO_02,
+        AGG_FILIACAO.ADICIONAR_OUTRA_FILIACAO,
+        AGG_FILIACAO.FOTO_CONTRACHEQUE01,
+        AGG_FILIACAO.FOTO_CONTRACHEQUE02
+      From
+        AGG_FILIACAO
+        Left Join EMPRESA On AGG_FILIACAO.CODIGO_EMPRESA = EMPRESA.CODIGO
+        Left Join EMPRESA EMPRESA1 On AGG_FILIACAO.CODIGO_EMPRESAI = EMPRESA1.CODIGO
+      Where
+        AGG_FILIACAO.CPF = @CPF
+        And AGG_FILIACAO.SITUACAO = '1'
+      Order By
+        AGG_FILIACAO.PROTOCOLO Desc
+      `,
+      { CPF: cpfDigits }
+    );
+
+    return rows.map((row) => ({
+      protocolo: this.normalizeScalar(row.PROTOCOLO),
+      cpf: this.maskCpf(cpfDigits),
+      status: this.normalizeScalar(row.STATUS) ?? "Em análise",
+      matricula01: this.normalizeScalar(row.MATRICULA_01),
+      codigoEmpresa01: this.normalizeScalar(row.CODIGO_EMPRESA_01),
+      empresa01: this.normalizeScalar(row.EMPRESA_01),
+      codigoPredio01: this.normalizeScalar(row.CODIGO_PREDIO_01),
+      matricula02: this.normalizeScalar(row.MATRICULA_02),
+      codigoEmpresa02: this.normalizeScalar(row.CODIGO_EMPRESA_02),
+      empresa02: this.normalizeScalar(row.EMPRESA_02),
+      codigoPredio02: this.normalizeScalar(row.CODIGO_PREDIO_02),
+      adicionarOutraFiliacao: this.isFlagEnabled(row.ADICIONAR_OUTRA_FILIACAO),
+      fotoContracheque01: this.toFotoDataUrl(row.FOTO_CONTRACHEQUE01),
+      fotoContracheque02: this.toFotoDataUrl(row.FOTO_CONTRACHEQUE02)
+    }));
+  }
+
   async getFichaCadastralByCpf(cpf?: string, usuario?: string) {
     const cpfDigits = this.sanitizeCpf(cpf ?? "");
     const usuarioPermissao = (usuario ?? cpfDigits).trim();
@@ -795,6 +1110,7 @@ Por segurança, altere essa senha no primeiro acesso.`;
 
     const pessoa = pessoaRows[0];
     const sindicato = sindicatoRows[0];
+    const qrCodeFicha = await this.ensureFichaQrCode(cpfDigits, pessoa.QRCODE_FICHA);
 
     return {
       cpf: this.maskCpf(cpfDigits),
@@ -830,7 +1146,7 @@ Por segurança, altere essa senha no primeiro acesso.`;
         complemento: this.normalizeScalar(pessoa.COMPLEMENTO),
         racaDescricao: this.normalizeScalar(pessoa.DESCRACA),
         numero: this.normalizeScalar(pessoa.NUMERO),
-        qrCodeFicha: this.normalizeScalar(pessoa.QRCODE_FICHA),
+        qrCodeFicha,
         fotoImg: this.toFotoDataUrl(pessoa.FOTOIMG)
       },
       filiacoes: filiacoesRows.map((row) => ({
@@ -858,6 +1174,166 @@ Por segurança, altere essa senha no primeiro acesso.`;
           }
         : null
     };
+  }
+
+  async prepareCarteiraByCpf(cpf?: string) {
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    try {
+      const anoValidadeCol = await this.resolveFirstExistingColumn("SINDICATO", ["ANO_VALIDADE_CARTEIRA"]);
+      const emiteCarteiraCol = await this.resolveFirstExistingColumn("SINDICATO", ["EMITE_CARTEIRA"]);
+
+      const dataValidadeCol = await this.resolveFirstExistingColumn("PESSOAS", ["DATAVALCARTEIRA", "DATAVALIDADECARTEIRA"]);
+      const dataEmissaoCol = await this.resolveFirstExistingColumn("PESSOAS", ["DATAEMISCARTEIRA"]);
+      const qrCarteiraCol = await this.resolveFirstExistingColumn("PESSOAS", ["QRCODE_CARTEIRA", "QRCODECARTEIRA"]);
+
+      const sindicatoRows = await this.legacyDatabaseService.query<SindicatoCarteiraRow>(
+        `
+        Select Top 1
+          ${anoValidadeCol ? `IsNull(SINDICATO.${anoValidadeCol}, 2)` : "2"} As ANO_VALIDADE_CARTEIRA,
+          ${emiteCarteiraCol ? `SINDICATO.${emiteCarteiraCol}` : "1"} As EMITE_CARTEIRA,
+          SINDICATO.URL,
+          SINDICATO.IMG_CART_F_M,
+          SINDICATO.IMG_CART_V_M
+        From
+          SINDICATO
+        `
+      );
+
+      if (sindicatoRows.length === 0) {
+        throw new BadRequestException("Configuração da carteira não encontrada.");
+      }
+
+      const sindicato = sindicatoRows[0];
+      const sindicatoUrl = this.normalizeScalar(sindicato.URL);
+      if (!sindicatoUrl) {
+        throw new BadRequestException("URL base da carteira não configurada.");
+      }
+
+      const anoValidade = this.resolveAnoValidadeCarteira(sindicato.ANO_VALIDADE_CARTEIRA);
+
+      const pessoaRows = await this.legacyDatabaseService.query<PessoaCarteiraRow>(
+        `
+        Select Top 1
+          PESSOAS.CPF,
+          IsNull(PESSOAS.NOME_SOCIAL, PESSOAS.NOME) As NOME,
+          PESSOAS.NOME_SOCIAL,
+          ${dataValidadeCol ? `PESSOAS.${dataValidadeCol}` : "Cast(Null As DateTime)"} As DATAVALCARTEIRA,
+          ${dataEmissaoCol ? `PESSOAS.${dataEmissaoCol}` : "Cast(Null As DateTime)"} As DATAEMISCARTEIRA,
+          PESSOAS.SANGUE_TP_RH,
+          'CPF: ' + dbo.formatar_cpfcnpj(PESSOAS.CPF) As CPF_EXTENSO,
+          IsNull(PESSOAS.CIDADE_CARTEIRINHA, PESSOAS.CIDADE) As CIDADE_CARTEIRINHA,
+          PESSOAS.FOTO_IMG,
+          PESSOAS.ID_PESSOA,
+          ${qrCarteiraCol ? `PESSOAS.${qrCarteiraCol}` : "Cast(Null As VarChar(Max))"} As QRCODE_CARTEIRA
+        From
+          PESSOAS
+        Where
+          PESSOAS.CPF = @CPF
+        `,
+        { CPF: cpfDigits }
+      );
+
+      if (pessoaRows.length === 0) {
+        throw new BadRequestException("Pessoa não encontrada para o CPF informado.");
+      }
+
+      const pessoa = pessoaRows[0];
+      const carteiraUrl = this.buildLegacyCarteiraUrl(sindicatoUrl, cpfDigits);
+
+      let qrCodeCarteira = this.toQrCodeDataUrl(pessoa.QRCODE_CARTEIRA);
+      let qrCodeFoiGerado = false;
+
+      if (!qrCodeCarteira) {
+        qrCodeCarteira = await QRCode.toDataURL(carteiraUrl, {
+          errorCorrectionLevel: "M",
+          margin: 1,
+          width: 220
+        });
+        qrCodeFoiGerado = true;
+      }
+
+      const qrCodeCarteiraBuffer = this.parseFotoFromDataUrl(qrCodeCarteira);
+
+      const hoje = this.toDateStart(new Date());
+      const dataValidadeAtual = pessoa.DATAVALCARTEIRA ? new Date(pessoa.DATAVALCARTEIRA) : null;
+      const carteiraVencida =
+        !dataValidadeAtual ||
+        Number.isNaN(dataValidadeAtual.getTime()) ||
+        this.toDateStart(dataValidadeAtual) < hoje;
+
+      const dataEmissaoNova = new Date(hoje);
+      const dataValidadeNova = new Date(hoje);
+      dataValidadeNova.setFullYear(dataValidadeNova.getFullYear() + anoValidade);
+
+      const updateSetClauses: string[] = [];
+
+      if (qrCarteiraCol && qrCodeFoiGerado) {
+        updateSetClauses.push(`${qrCarteiraCol} = @QRCODE_CARTEIRA`);
+      }
+
+      if (dataEmissaoCol) {
+        updateSetClauses.push(
+          `${dataEmissaoCol} = Case When @ATUALIZA_VALIDADE = 1 Then @DATAEMISCARTEIRA Else ${dataEmissaoCol} End`
+        );
+      }
+
+      if (dataValidadeCol) {
+        updateSetClauses.push(
+          `${dataValidadeCol} = Case When @ATUALIZA_VALIDADE = 1 Then @DATAVALCARTEIRA Else ${dataValidadeCol} End`
+        );
+      }
+
+      if (updateSetClauses.length > 0) {
+        await this.legacyDatabaseService.query(
+          `
+          Update PESSOAS
+          Set
+            ${updateSetClauses.join(",\n            ")}
+          Where
+            CPF = @CPF
+          `,
+          {
+            CPF: cpfDigits,
+            QRCODE_CARTEIRA: qrCodeCarteiraBuffer,
+            ATUALIZA_VALIDADE: carteiraVencida ? 1 : 0,
+            DATAEMISCARTEIRA: dataEmissaoNova,
+            DATAVALCARTEIRA: dataValidadeNova
+          }
+        );
+      }
+
+      return {
+        cpf: this.maskCpf(cpfDigits),
+        url: carteiraUrl,
+        qrCodeCarteira,
+        qrCodeFoiGerado,
+        carteiraVencida,
+        dataEmissaoCarteira: carteiraVencida ? dataEmissaoNova.toISOString() : this.toDateTimeIso(pessoa.DATAEMISCARTEIRA),
+        dataValidadeCarteira: carteiraVencida ? dataValidadeNova.toISOString() : this.toDateTimeIso(pessoa.DATAVALCARTEIRA),
+        anosValidadeCarteira: anoValidade,
+        nome: this.normalizeScalar(pessoa.NOME),
+        cpfExtenso: this.normalizeScalar(pessoa.CPF_EXTENSO),
+        cidadeCarteirinha: this.normalizeScalar(pessoa.CIDADE_CARTEIRINHA),
+        sangueTpRh: this.normalizeScalar(pessoa.SANGUE_TP_RH),
+        fotoImg: this.toFotoDataUrl(pessoa.FOTO_IMG),
+        sindicato: {
+          imgCartFrente: this.toFotoDataUrl(sindicato.IMG_CART_F_M),
+          imgCartVerso: this.toFotoDataUrl(sindicato.IMG_CART_V_M)
+        }
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      const detail = error instanceof Error ? error.message : "Falha desconhecida ao preparar carteira.";
+      this.logger.error(`Erro ao preparar carteira para CPF ${cpfDigits}: ${detail}`);
+      throw new BadRequestException(`Falha ao preparar carteira: ${detail}`);
+    }
   }
 
   async getAtualizarDadosByCpf(cpf?: string) {

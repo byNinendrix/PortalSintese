@@ -22,9 +22,19 @@ export class UsersController {
     return this.usersService.getFiliacoesByCpf(cpf);
   }
 
+  @Get("protocolos")
+  getProtocolos(@Query("cpf") cpf?: string) {
+    return this.usersService.getProtocolosByCpf(cpf);
+  }
+
   @Get("ficha-cadastral")
   getFichaCadastral(@Query("cpf") cpf?: string, @Query("usuario") usuario?: string) {
     return this.usersService.getFichaCadastralByCpf(cpf, usuario);
+  }
+
+  @Get("carteira")
+  getCarteira(@Query("cpf") cpf?: string) {
+    return this.usersService.prepareCarteiraByCpf(cpf);
   }
 
   @Get("atualizar-dados")

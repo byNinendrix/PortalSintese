@@ -53,6 +53,10 @@ function toQrCodeSrc(value?: string | null): string | null {
     return raw;
   }
 
+  if (/^[A-Za-z0-9+/=\r\n]+$/.test(raw) && raw.length > 80) {
+    return `data:image/png;base64,${raw.replace(/\s/g, "")}`;
+  }
+
   return null;
 }
 
@@ -68,6 +72,7 @@ export function FichaCadastralPage() {
   const hasTriggeredAutoPrint = useRef(false);
   const [searchParams] = useSearchParams();
   const autoPrint = searchParams.get("autoPrint") === "1";
+  const embedded = searchParams.get("embedded") === "1";
   const session = readAuthSession();
   const cpfDigits = useMemo(() => digitsOnly(session?.cpf ?? ""), [session?.cpf]);
   const usuario = useMemo(() => digitsOnly(session?.cpf ?? ""), [session?.cpf]);
@@ -83,13 +88,16 @@ export function FichaCadastralPage() {
 
     hasTriggeredAutoPrint.current = true;
     const timer = window.setTimeout(() => {
+      if (embedded && window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "ficha-print-triggered" }, window.location.origin);
+      }
       window.print();
     }, 250);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [autoPrint, ficha, fichaQuery.isLoading]);
+  }, [autoPrint, embedded, ficha, fichaQuery.isLoading]);
 
   return (
     <section className="ficha-screen-shell mx-auto w-full max-w-[1240px] px-3 py-4 sm:px-4 sm:py-6">

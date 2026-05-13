@@ -9,11 +9,14 @@ import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { SessionDebugPage } from "../features/auth/pages/SessionDebugPage";
 import { AUTH_SESSION_CHANGED_EVENT, hasAuthSession } from "../features/auth/services/authSession";
 import { ConveniosPage } from "../features/convenios/pages/ConveniosPage";
+import { CarteiraPage } from "../features/carteira/pages/CarteiraPage";
+import { CarteiraLayoutConfigPage } from "../features/carteira/pages/CarteiraLayoutConfigPage";
 import { FichaCadastralPage } from "../features/ficha-cadastral/pages/FichaCadastralPage";
 import { LgpdOnlinePage } from "../features/lgpd/pages/LgpdOnlinePage";
 import { MainMenuPage } from "../features/menu/pages/MainMenuPage";
 import { MinhasFiliacoesPage } from "../features/minhas-filiacoes/pages/MinhasFiliacoesPage";
 import { ParceirosPage } from "../features/parceiros/pages/ParceirosPage";
+import { ProtocolosPage } from "../features/protocolos/pages/ProtocolosPage";
 
 export function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => hasAuthSession());
@@ -61,8 +64,20 @@ export function App() {
           element={isAuthenticated ? <MinhasFiliacoesPage /> : <Navigate to="/login" replace />}
         />
         <Route
+          path="/protocolos"
+          element={isAuthenticated ? <ProtocolosPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
           path="/ficha-cadastral"
           element={isAuthenticated ? <FichaCadastralPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/carteira"
+          element={isAuthenticated ? <CarteiraPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/configurar-layout-carteira"
+          element={isAuthenticated ? <CarteiraLayoutConfigPage /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/debug-sessao"

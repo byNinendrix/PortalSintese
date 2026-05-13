@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@sintese/ui";
 
 interface AppShellProps {
@@ -17,19 +17,42 @@ const navItems = [
 
 export function AppShell({ children }: AppShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
   const { pathname } = useLocation();
   const isLegacyLoginView =
     pathname === "/login" ||
     pathname === "/menu-principal" ||
+    pathname === "/protocolos" ||
     pathname === "/redefinir-senha" ||
     pathname === "/atualizar-meus-dados" ||
     pathname === "/minhas-filiacoes" ||
     pathname === "/ficha-cadastral" ||
+    pathname === "/carteira" ||
     pathname === "/debug-sessao" ||
     pathname === "/lgpd-online" ||
     pathname === "/cadastro" ||
     pathname === "/recuperar-senha" ||
     pathname === "/convenios";
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (pathname !== "/menu-principal") {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (!event.ctrlKey || !event.shiftKey || key !== "q") {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      navigate("/configurar-layout-carteira");
+    }
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [navigate, pathname]);
 
   if (isLegacyLoginView) {
     return (

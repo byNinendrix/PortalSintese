@@ -9,14 +9,16 @@ type MenuAction = {
   to?: string;
   requiresFiliacaoAtiva?: boolean;
   openInNewTab?: boolean;
+  triggerFichaPrint?: boolean;
+  triggerCarteira?: boolean;
 };
 
 const actions: MenuAction[] = [
   { label: "Solicitar Filiação", to: "/cadastro" },
   { label: "Consulta de Cálculo de Regência de Classe", requiresFiliacaoAtiva: true },
-  { label: "Protocolo(s)" },
-  { label: "Carteira", requiresFiliacaoAtiva: true },
-  { label: "Ficha Cadastral", to: "/ficha-cadastral?autoPrint=1", requiresFiliacaoAtiva: true, openInNewTab: true },
+  { label: "Protocolo(s)", to: "/protocolos" },
+  { label: "Carteira", requiresFiliacaoAtiva: true, triggerCarteira: true },
+  { label: "Ficha Cadastral", requiresFiliacaoAtiva: true, triggerFichaPrint: true },
   { label: "Atualizar Meus Dados", to: "/atualizar-meus-dados", requiresFiliacaoAtiva: true },
   { label: "Minhas Filiações", to: "/minhas-filiacoes", requiresFiliacaoAtiva: true },
   { label: "Termo L.G.P.D. Online", to: "/lgpd-online", requiresFiliacaoAtiva: true },
@@ -27,6 +29,8 @@ const actions: MenuAction[] = [
 export function MainMenuPage() {
   const session = readAuthSession();
   const [notice, setNotice] = useState<string | null>(null);
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
+  const [isPreparingCarteira, setIsPreparingCarteira] = useState(false);
   const navigate = useNavigate();
 
   const clearNotice = useCallback(() => {
@@ -35,6 +39,134 @@ export function MainMenuPage() {
 
   function onUnavailableClick(label: string) {
     setNotice(`"${label}" estará disponível em breve.`);
+  }
+
+  function triggerFichaPrint() {
+    if (isPreparingPrint) {
+      return;
+    }
+
+    setIsPreparingPrint(true);
+    setNotice("Carregando ficha cadastral para impressão...");
+
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("title", "Impressão da ficha cadastral");
+    iframe.style.position = "fixed";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.opacity = "0";
+    iframe.style.border = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "-9999px";
+
+    let finished = false;
+    let timeoutId: number | null = null;
+    const cleanup = () => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      setIsPreparingPrint(false);
+      window.removeEventListener("message", onMessage);
+      iframe.remove();
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+      const payload = event.data as { type?: string } | null;
+      if (payload?.type === "ficha-print-triggered") {
+        setNotice(null);
+        window.setTimeout(() => {
+          cleanup();
+        }, 1200);
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      setNotice("Não foi possível preparar a impressão da ficha agora. Tente novamente.");
+    }, 30000);
+
+    iframe.onload = () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+
+    iframe.src = "/ficha-cadastral?autoPrint=1&embedded=1";
+    document.body.appendChild(iframe);
+  }
+
+  function triggerCarteira() {
+    if (isPreparingCarteira) {
+      return;
+    }
+
+    setIsPreparingCarteira(true);
+    setNotice("Carregando carteira para impressão...");
+
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("title", "Impressão da carteira");
+    iframe.style.position = "fixed";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.opacity = "0";
+    iframe.style.border = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "-9999px";
+
+    let finished = false;
+    let timeoutId: number | null = null;
+    const cleanup = () => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      setIsPreparingCarteira(false);
+      window.removeEventListener("message", onMessage);
+      iframe.remove();
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+      const payload = event.data as { type?: string } | null;
+      if (payload?.type === "carteira-print-triggered") {
+        setNotice(null);
+        window.setTimeout(() => {
+          cleanup();
+        }, 1200);
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      setNotice("Não foi possível preparar a impressão da carteira agora. Tente novamente.");
+    }, 30000);
+
+    iframe.onload = () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+
+    iframe.src = "/carteira?autoPrint=1&embedded=1";
+    document.body.appendChild(iframe);
   }
 
   function hasFiliacaoAtiva(): boolean {
@@ -60,6 +192,16 @@ export function MainMenuPage() {
     setNotice(null);
 
     if (action.requiresFiliacaoAtiva && !hasFiliacaoAtiva()) {
+      return;
+    }
+
+    if (action.triggerCarteira) {
+      void triggerCarteira();
+      return;
+    }
+
+    if (action.triggerFichaPrint) {
+      triggerFichaPrint();
       return;
     }
 
@@ -108,12 +250,18 @@ export function MainMenuPage() {
             type="button"
             className="btn-modern-danger w-full"
             onClick={() => onActionClick(action)}
+            disabled={isPreparingPrint || isPreparingCarteira}
           >
             {action.label}
           </Button>
         ))}
 
-        <Button type="button" className="btn-modern-danger w-full" onClick={onLogout}>
+        <Button
+          type="button"
+          className="btn-modern-danger w-full"
+          onClick={onLogout}
+          disabled={isPreparingPrint || isPreparingCarteira}
+        >
           Sair
         </Button>
       </div>
