@@ -438,6 +438,353 @@
   z-index: 2;
 }
 
+.protocolo-report-root {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.protocolo-screen-actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.protocolo-report-sheet {
+  width: 100%;
+  max-width: 960px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 16px;
+  color: #0f172a;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+}
+
+.protocolo-report-header {
+  display: grid;
+  grid-template-columns: 66px 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  border-bottom: 1px solid #d1d5db;
+  padding-bottom: 10px;
+}
+
+.protocolo-report-header h1 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.2;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.protocolo-report-header h2 {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #b91c1c;
+  word-break: break-word;
+}
+
+.protocolo-meta {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.protocolo-report-logo {
+  width: 66px;
+  height: 66px;
+  object-fit: contain;
+}
+
+.protocolo-grid-main {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr minmax(220px, 260px);
+  gap: 12px;
+}
+
+.protocolo-panel {
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 10px;
+  min-width: 0;
+}
+
+.protocolo-panel h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.protocolo-line {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(118px, 148px) 1fr;
+  align-items: start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.25;
+  color: #1e293b;
+}
+
+.protocolo-line + .protocolo-line {
+  margin-top: 4px;
+}
+
+.protocolo-line strong {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.protocolo-line span {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.protocolo-foto {
+  width: 140px;
+  height: 180px;
+  object-fit: cover;
+  object-position: center;
+  border: 1px solid #9ca3af;
+  margin: 0 auto 10px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.protocolo-foto-empty {
+  width: 140px;
+  height: 180px;
+  border: 1px dashed #94a3b8;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #64748b;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.protocolo-side-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.protocolo-line-compact {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #1e293b;
+}
+
+.protocolo-line-compact + .protocolo-line-compact {
+  margin-top: 4px;
+}
+
+.protocolo-line-compact strong {
+  min-width: 74px;
+  white-space: nowrap;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.protocolo-line-compact span {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.protocolo-block {
+  margin-top: 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+}
+
+.protocolo-block h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #b91c1c;
+  border-bottom: 1px solid #fde2e2;
+  padding-bottom: 4px;
+}
+
+.protocolo-block-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+}
+
+.protocolo-block p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.protocolo-anexos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.protocolo-anexo-card {
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 8px;
+}
+
+.protocolo-anexo-card h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.protocolo-anexo-img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.protocolo-anexo-empty {
+  width: 100%;
+  height: 120px;
+  border: 1px dashed #94a3b8;
+  color: #64748b;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.protocolo-footer {
+  margin-top: 12px;
+  text-align: center;
+  border-top: 1px solid #dbe4ef;
+  padding-top: 10px;
+}
+
+.protocolo-footer p {
+  margin: 3px 0;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.protocolo-footer-title {
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.protocolo-footer-sign {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.protocolo-report-lgpd {
+  padding-bottom: 20px;
+}
+
+.protocolo-lgpd-protocolo {
+  margin: 8px 0 4px;
+  font-size: 28px;
+  line-height: 1.08;
+  font-weight: 800;
+  color: #111827;
+  text-align: center;
+  word-break: break-word;
+}
+
+.protocolo-termo {
+  margin-top: 4px;
+}
+
+.protocolo-termo p {
+  margin: 0 0 8px;
+  color: #0f172a;
+}
+
+.protocolo-termo h1,
+.protocolo-termo h2,
+.protocolo-termo h3,
+.protocolo-termo h4 {
+  margin: 8px 0 4px;
+  color: #0f172a;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.protocolo-termo h1 {
+  font-size: 20px;
+  text-align: center;
+}
+
+.protocolo-termo h2 {
+  font-size: 16px;
+  text-align: center;
+}
+
+.protocolo-termo h3,
+.protocolo-termo h4 {
+  font-size: 14px;
+}
+
+.protocolo-termo strong {
+  font-weight: 800;
+}
+
+.protocolo-termo br {
+  line-height: 1.2;
+}
+
+.protocolo-lgpd-title {
+  font-size: 20px;
+  line-height: 1.12;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 2px !important;
+}
+
+.protocolo-lgpd-subtitle {
+  font-size: 14px;
+  line-height: 1.14;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 6px !important;
+  text-transform: uppercase;
+}
+
+.protocolo-lgpd-section {
+  font-size: 13px;
+  line-height: 1.16;
+  font-weight: 800;
+  margin: 8px 0 3px !important;
+}
+
+.protocolo-lgpd-paragraph {
+  font-size: 11px;
+  line-height: 1.24;
+  text-align: justify;
+}
+
 @media (max-width: 1024px) {
   .ficha-report-title-org {
     font-size: 28px;
@@ -458,6 +805,32 @@
   .ficha-dados-grid .ficha-span-2 {
     grid-column: auto;
   }
+
+  .protocolo-grid-main {
+    grid-template-columns: 1fr;
+  }
+
+  .protocolo-block-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .protocolo-line {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .protocolo-line strong {
+    font-size: 12px;
+  }
+
+  .protocolo-anexos-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .protocolo-screen-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
 }
 
 @media print {
@@ -473,6 +846,11 @@
   @page carteira-pvc {
     size: 85.6mm 54mm;
     margin: 0;
+  }
+
+  @page protocolo-a4 {
+    size: A4 portrait;
+    margin: 4mm;
   }
 
   html,
@@ -500,6 +878,33 @@
 
   .ficha-screen-shell {
     page: ficha-a4;
+  }
+
+  .protocolo-report-root {
+    page: protocolo-a4;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .protocolo-report-sheet {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 0 2.5mm 0 !important;
+    border: 1px solid #111 !important;
+    border-radius: 0 !important;
+    padding: 2mm !important;
+    box-shadow: none !important;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .protocolo-report-sheet:last-child {
+    page-break-after: auto;
+    break-after: auto;
   }
 
   .carteira-print-root {
@@ -665,5 +1070,223 @@
 
   .carteira-guide-label {
     display: none !important;
+  }
+
+  .protocolo-screen-actions,
+  .protocolo-print-hide {
+    display: none !important;
+  }
+
+  .protocolo-report-header h1 {
+    font-size: 13.5px !important;
+    line-height: 1.1 !important;
+  }
+
+  .protocolo-report-header h2 {
+    font-size: 12px !important;
+    margin-top: 1px !important;
+  }
+
+  .protocolo-meta {
+    font-size: 9px !important;
+    margin-top: 1px !important;
+  }
+
+  .protocolo-grid-main {
+    margin-top: 1.2mm !important;
+    gap: 1.2mm !important;
+    grid-template-columns: 1fr 56mm !important;
+  }
+
+  .protocolo-panel,
+  .protocolo-block {
+    border-radius: 0 !important;
+    padding: 0.9mm !important;
+    border: 1px solid #aaa !important;
+  }
+
+  .protocolo-panel h3,
+  .protocolo-block h3 {
+    font-size: 11px !important;
+    margin-bottom: 1mm !important;
+    padding-bottom: 0.6mm !important;
+  }
+
+  .protocolo-line {
+    grid-template-columns: 32mm 1fr !important;
+    gap: 0.8mm !important;
+    font-size: 9px !important;
+    line-height: 1.12 !important;
+  }
+
+  .protocolo-line + .protocolo-line {
+    margin-top: 0.3mm !important;
+  }
+
+  .protocolo-foto,
+  .protocolo-foto-empty {
+    width: 24mm !important;
+    height: 30mm !important;
+    margin-bottom: 0.8mm !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    border-radius: 0 !important;
+  }
+
+  .protocolo-line-compact {
+    font-size: 9.5px !important;
+    line-height: 1.15 !important;
+    gap: 0.8mm !important;
+  }
+
+  .protocolo-line-compact + .protocolo-line-compact {
+    margin-top: 0.5mm !important;
+  }
+
+  .protocolo-line-compact strong {
+    min-width: 12mm !important;
+  }
+
+  .protocolo-block-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.8mm 2mm !important;
+  }
+
+  .protocolo-anexos-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.8mm !important;
+  }
+
+  .protocolo-anexo-card {
+    padding: 0.7mm !important;
+    border-radius: 0 !important;
+  }
+
+  .protocolo-anexo-card h4 {
+    font-size: 8px !important;
+    margin-bottom: 0.4mm !important;
+  }
+
+  .protocolo-anexo-img,
+  .protocolo-anexo-empty {
+    height: 18mm !important;
+    border-radius: 0 !important;
+  }
+
+  .protocolo-footer {
+    margin-top: 0.9mm !important;
+    padding-top: 0.6mm !important;
+  }
+
+  .protocolo-footer p {
+    font-size: 8px !important;
+    line-height: 1.1 !important;
+  }
+
+  .protocolo-footer-sign {
+    font-size: 9px !important;
+    margin-top: 0.5mm !important;
+  }
+
+  .protocolo-report-lgpd {
+    page-break-before: always !important;
+    break-before: page !important;
+    padding: 1.2mm !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-report-header {
+    grid-template-columns: 14mm 1fr !important;
+    gap: 1mm !important;
+    align-items: center !important;
+    padding-bottom: 0.35mm !important;
+    margin-bottom: 0.25mm !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-report-logo {
+    width: 10mm !important;
+    height: 10mm !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-report-header h1 {
+    font-size: 10px !important;
+    line-height: 1.05 !important;
+    text-align: center !important;
+    margin: 0 !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-report-header h2 {
+    display: none !important;
+  }
+
+  .protocolo-lgpd-protocolo {
+    font-size: 9.8px !important;
+    line-height: 1.08 !important;
+    margin: 0.45mm 0 0.45mm !important;
+    text-align: center !important;
+  }
+
+  .protocolo-lgpd-title {
+    font-size: 9px !important;
+    line-height: 1.08 !important;
+    margin-bottom: 0.15mm !important;
+    text-align: center !important;
+  }
+
+  .protocolo-lgpd-subtitle {
+    font-size: 7.6px !important;
+    line-height: 1.08 !important;
+    margin-bottom: 0.4mm !important;
+    text-align: center !important;
+    font-weight: 800 !important;
+  }
+
+  .protocolo-lgpd-section {
+    font-size: 7.5px !important;
+    line-height: 1.08 !important;
+    margin: 0.35mm 0 0.1mm !important;
+    font-weight: 800 !important;
+  }
+
+  .protocolo-lgpd-paragraph {
+    font-size: 6.9px !important;
+    line-height: 1.05 !important;
+    margin-bottom: 0.2mm !important;
+    text-align: justify !important;
+    hyphens: auto;
+    word-break: normal !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-termo p {
+    margin-bottom: 0.2mm !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-termo h1,
+  .protocolo-report-lgpd .protocolo-termo h2,
+  .protocolo-report-lgpd .protocolo-termo h3,
+  .protocolo-report-lgpd .protocolo-termo h4 {
+    margin: 0.32mm 0 0.12mm !important;
+    line-height: 1.06 !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-termo h1 {
+    font-size: 8.8px !important;
+    text-align: center !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-termo h2 {
+    font-size: 7.8px !important;
+    text-align: center !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-termo h3,
+  .protocolo-report-lgpd .protocolo-termo h4 {
+    font-size: 7.1px !important;
+  }
+
+  .protocolo-report-lgpd .protocolo-footer-sign {
+    margin-top: 0.45mm !important;
+    font-size: 7.8px !important;
+    line-height: 1.05 !important;
+    text-align: center !important;
   }
 }

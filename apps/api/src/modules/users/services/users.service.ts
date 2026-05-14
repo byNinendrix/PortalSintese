@@ -47,6 +47,101 @@ interface ProtocoloRow {
   FOTO_CONTRACHEQUE02?: Buffer | string | null;
 }
 
+interface RegenciaClasseRow {
+  VALOR?: string | number | null;
+  NOME?: string | null;
+  CPF?: string | null;
+  DATANASCIMENTO?: Date | string | null;
+}
+
+interface ProtocoloRelatorioRow {
+  CPFAGGFILIACAO?: string | null;
+  NOME?: string | null;
+  PAI?: string | null;
+  MAE?: string | null;
+  NATURALIDADE?: string | null;
+  CEP?: string | null;
+  ENDERECO?: string | null;
+  COMPLEMENTO?: string | null;
+  BAIRRO?: string | null;
+  CIDADE?: string | null;
+  ESTADO?: string | null;
+  TELEFONE?: string | null;
+  CELULAR?: string | null;
+  CELULARII?: string | null;
+  DATANASCIMENTO?: Date | string | null;
+  EMAILMAIUSCULO?: string | null;
+  ESTADOCIVIL?: string | null;
+  RGOCULTO?: string | null;
+  DATA_REGISTRO?: Date | string | null;
+  FOTO_RESIDENCIA?: Buffer | string | null;
+  FOTO_CONTRACHEQUE01?: Buffer | string | null;
+  FOTO_CONTRACHEQUE02?: Buffer | string | null;
+  FOTO_RG_FRENTE?: Buffer | string | null;
+  FOTO_RG_VERSO?: Buffer | string | null;
+  PROTOCOLO?: string | null;
+  IP?: string | null;
+  DATAEXPRG?: Date | string | null;
+  SANGUE_TP_RH?: string | null;
+  RG_ORGAO?: string | null;
+  RG_UF?: string | null;
+  NRPROTOCOLO?: string | null;
+  RACA?: string | null;
+  MATRICULA_ORGAO?: string | number | null;
+  CARGAHORARIA_ORGAO?: string | number | null;
+  ADMISSAO_ORGAO?: Date | string | null;
+  APOSENTADORIA_ORGAO?: Date | string | null;
+  ADICIONAR_OUTRA_FILIACAO?: string | number | boolean | null;
+  MATRICULA_ORGAOI?: string | number | null;
+  ADMISSAO_ORGAOI?: Date | string | null;
+  APOSENTADORIA_ORGAOI?: Date | string | null;
+  SITUACAO_FILIACAO?: string | null;
+  SITUACAO_ORGAO?: string | null;
+  NIVEL_ORGAO?: string | null;
+  NIVEL_ORGAO_I?: string | null;
+  FUNCAO_ORGAO?: string | null;
+  FUNCAO_ORGAO_I?: string | null;
+  PROFISSAO_ORGAO?: string | null;
+  PROFISSAO_ORGAO_I?: string | null;
+  VINCULO_EMPREGATICIO_ORGAO?: string | null;
+  VINCULO_EMPREGATICIO_ORGAO_I?: string | null;
+  NUMERO?: string | number | null;
+  FOTO?: Buffer | string | null;
+  AUTORIZARDESCONTO?: string | null;
+  TERMOLGPD?: string | null;
+  ENTEPUBLICO?: string | null;
+  ENTEPUBLICOI?: string | null;
+  CODIGO_EMPRESA?: string | number | null;
+  CODIGO_EMPRESAI?: string | number | null;
+  CODIGO_PREDIO?: string | number | null;
+  CODIGO_PREDIOI?: string | number | null;
+  SITUACAO_FUNCIONAL?: string | null;
+  TEXTO_LGPD?: string | null;
+  DESCONTAR_INSSMAIUSCULO?: string | null;
+  DATA_DESCONTO_INSS?: Date | string | null;
+  NUMERO_BENEFICIO_INSS?: string | null;
+  DESCONTAR_INSSIMAIUSCULO?: string | null;
+  DATA_DESCONTO_INSSI?: Date | string | null;
+  NUMERO_BENEFICIO_INSSI?: string | null;
+  ESPECIE_INSS?: string | null;
+  ESPECIE_INSS_I?: string | null;
+  FOTO_DOCUMENTO?: Buffer | string | null;
+  ESPECIFICAR_GENERO?: string | null;
+  ORIENTACAO_SEXUAL?: string | null;
+  NOME_SOCIAL?: string | null;
+  SEXOMAIUSCULO?: string | null;
+  CARGO?: string | null;
+  CARGO1?: string | null;
+}
+
+interface ProtocoloRelatorioSindicatoRow {
+  CNPJ?: string | null;
+  RAZAO_SOCIAL?: string | null;
+  FANTASIA?: string | null;
+  LOGO?: Buffer | string | null;
+  TEXTO_AUTORIZACAO_DESCONTO?: string | null;
+}
+
 interface FichaCadastralPessoaRow {
   CPFOCULTO?: string | null;
   NOME?: string | null;
@@ -335,6 +430,25 @@ export class UsersService {
 
     const normalized = String(value).trim();
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private toNullableNumber(value: string | number | null | undefined): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const normalized = trimmed.includes(",") ? trimmed.replace(/\./g, "").replace(",", ".") : trimmed;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   private buildLegacyFichaValidationUrl(baseUrl: string, cpfDigits: string, chave: string): string {
@@ -926,6 +1040,313 @@ Por segurança, altere essa senha no primeiro acesso.`;
       fotoContracheque01: this.toFotoDataUrl(row.FOTO_CONTRACHEQUE01),
       fotoContracheque02: this.toFotoDataUrl(row.FOTO_CONTRACHEQUE02)
     }));
+  }
+
+  async getRegenciaClasseByCpf(cpf?: string) {
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const rows = await this.legacyDatabaseService.query<RegenciaClasseRow>(
+      `
+      Select
+        PESSOAS_PAGAMENTO.valor As VALOR,
+        PESSOAS.NOME,
+        PESSOAS.CPF,
+        PESSOAS.DATANASCIMENTO
+      From
+        PESSOAS
+        Inner Join PESSOAS_PAGAMENTO On PESSOAS.CPF = PESSOAS_PAGAMENTO.CPF
+      Where
+        PESSOAS.CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    if (rows.length === 0) {
+      const profileRows = await this.legacyDatabaseService.query<PessoaProfileRow>(
+        `
+        Select Top 1
+          CPF,
+          NOME
+        From
+          PESSOAS
+        Where
+          CPF = @CPF
+        `,
+        { CPF: cpfDigits }
+      );
+
+      return {
+        cpf: this.maskCpf(cpfDigits),
+        nome: profileRows[0]?.NOME?.trim() ?? null,
+        dataNascimento: null,
+        valorTotal: null,
+        hasData: false,
+        registros: []
+      };
+    }
+
+    const registros = rows.map((row) => ({
+      valor: this.toNullableNumber(row.VALOR),
+      nome: this.normalizeScalar(row.NOME),
+      cpf: this.normalizeScalar(row.CPF),
+      dataNascimento: this.toDateIso(row.DATANASCIMENTO)
+    }));
+
+    const valorTotal = registros.reduce<number | null>((acc, item) => {
+      if (item.valor === null) {
+        return acc;
+      }
+      if (acc === null) {
+        return item.valor;
+      }
+      return acc + item.valor;
+    }, null);
+
+    return {
+      cpf: this.maskCpf(cpfDigits),
+      nome: registros[0]?.nome ?? null,
+      dataNascimento: registros[0]?.dataNascimento ?? null,
+      valorTotal,
+      hasData: registros.length > 0,
+      registros
+    };
+  }
+
+  async getProtocoloRelatorio(protocolo?: string, cpf?: string) {
+    const protocoloKey = (protocolo ?? "").trim();
+    if (!protocoloKey) {
+      throw new BadRequestException("Protocolo inválido.");
+    }
+
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+
+    const rows = await this.legacyDatabaseService.query<ProtocoloRelatorioRow>(
+      `
+      Select Top 1
+        AGG_FILIACAO.CPF As CPFAGGFILIACAO,
+        AGG_FILIACAO.NOME,
+        AGG_FILIACAO.PAI,
+        AGG_FILIACAO.MAE,
+        AGG_FILIACAO.NATURALIDADE,
+        AGG_FILIACAO.CEP,
+        AGG_FILIACAO.ENDERECO,
+        AGG_FILIACAO.COMPLEMENTO,
+        AGG_FILIACAO.BAIRRO,
+        AGG_FILIACAO.CIDADE,
+        AGG_FILIACAO.ESTADO,
+        AGG_FILIACAO.TELEFONE,
+        AGG_FILIACAO.CELULAR,
+        AGG_FILIACAO.CELULARII,
+        AGG_FILIACAO.DATANASCIMENTO,
+        Upper(AGG_FILIACAO.EMAIL) As EMAILMAIUSCULO,
+        AGG_FILIACAO.ESTADOCIVIL,
+        Concat(SubString(AGG_FILIACAO.RG, 1, Len(AGG_FILIACAO.RG) - 3), Replicate('*', 3)) As RGOCULTO,
+        AGG_FILIACAO.DATA_REGISTRO,
+        AGG_FILIACAO.FOTO_RESIDENCIA,
+        AGG_FILIACAO.FOTO_CONTRACHEQUE01,
+        AGG_FILIACAO.FOTO_CONTRACHEQUE02,
+        AGG_FILIACAO.FOTO_RG_FRENTE,
+        AGG_FILIACAO.FOTO_RG_VERSO,
+        AGG_FILIACAO.PROTOCOLO,
+        AGG_FILIACAO.IP,
+        AGG_FILIACAO.DATAEXPRG,
+        AGG_FILIACAO.SANGUE_TP_RH,
+        AGG_FILIACAO.RG_ORGAO,
+        AGG_FILIACAO.RG_UF,
+        'Nº Protocolo: ' + IsNull(AGG_FILIACAO.PROTOCOLO, '') As NRPROTOCOLO,
+        AGG_FILIACAO.RACA,
+        AGG_FILIACAO.MATRICULA_ORGAO,
+        AGG_FILIACAO.CARGAHORARIA_ORGAO,
+        AGG_FILIACAO.ADMISSAO_ORGAO,
+        AGG_FILIACAO.APOSENTADORIA_ORGAO,
+        AGG_FILIACAO.ADICIONAR_OUTRA_FILIACAO,
+        AGG_FILIACAO.MATRICULA_ORGAOI,
+        AGG_FILIACAO.ADMISSAO_ORGAOI,
+        AGG_FILIACAO.APOSENTADORIA_ORGAOI,
+        SITUACAO_FILIADO.DESCRICAO As SITUACAO_FILIACAO,
+        SITUACAO_FILIADO1.DESCRICAO As SITUACAO_ORGAO,
+        NIVEL.DESCRICAO As NIVEL_ORGAO,
+        NIVEL1.DESCRICAO As NIVEL_ORGAO_I,
+        FUNCOES.DESCRICAO As FUNCAO_ORGAO,
+        FUNCOES1.DESCRICAO As FUNCAO_ORGAO_I,
+        PROFISSAO.DESCRICAO As PROFISSAO_ORGAO,
+        PROFISSAO1.DESCRICAO As PROFISSAO_ORGAO_I,
+        VINCULO_EMPREGATICIO.DESCRICAO As VINCULO_EMPREGATICIO_ORGAO,
+        VINCULO_EMPREGATICIO1.DESCRICAO As VINCULO_EMPREGATICIO_ORGAO_I,
+        AGG_FILIACAO.NUMERO,
+        AGG_FILIACAO.FOTO,
+        'EU, ' + AGG_FILIACAO.NOME + ', ' + Case
+          When IsNull(AGG_FILIACAO.AUTORIZAR_DESCONTO, 0) = 0 Then 'NÃO AUTORIZO O DESCONTO.'
+          Else 'AUTORIZO O DESCONTO.'
+        End As AUTORIZARDESCONTO,
+        'EU, ' + AGG_FILIACAO.NOME + ', ' + Case
+          When IsNull(AGG_FILIACAO.AUTORIZAR_LGPD, 0) = 0 Then 'NÃO ESTOU DE ACORDO COM OS TERMOS DA L.G.P.D.'
+          Else 'ESTOU DE ACORDO COM OS TERMOS DA L.G.P.D.'
+        End As TERMOLGPD,
+        EMPRESA.DESCRICAO As ENTEPUBLICO,
+        EMPRESA1.DESCRICAO As ENTEPUBLICOI,
+        AGG_FILIACAO.CODIGO_EMPRESA,
+        AGG_FILIACAO.CODIGO_EMPRESAI,
+        AGG_FILIACAO.CODIGO_PREDIO,
+        AGG_FILIACAO.CODIGO_PREDIOI,
+        AGG_FILIACAO.SITUACAO_FUNCIONAL,
+        AGG_FILIACAO.TERMO_LGPD As TEXTO_LGPD,
+        Upper(Case When AGG_FILIACAO.DESCONTAR_INSS = 1 Then 'Sim' Else 'Não' End) As DESCONTAR_INSSMAIUSCULO,
+        AGG_FILIACAO.DATA_DESCONTO_INSS,
+        AGG_FILIACAO.NUMERO_BENEFICIO_INSS,
+        Upper(Case When AGG_FILIACAO.DESCONTAR_INSSI = 1 Then 'Sim' Else 'Não' End) As DESCONTAR_INSSIMAIUSCULO,
+        AGG_FILIACAO.DATA_DESCONTO_INSSI,
+        AGG_FILIACAO.NUMERO_BENEFICIO_INSSI,
+        CAD_ESPECIE_INSS.DESCRICAO As ESPECIE_INSS,
+        CAD_ESPECIE_INSS1.DESCRICAO As ESPECIE_INSS_I,
+        AGG_FILIACAO.FOTO_DOCUMENTO,
+        AGG_FILIACAO.ESPECIFICAR_GENERO,
+        AGG_FILIACAO.ORIENTACAO_SEXUAL,
+        AGG_FILIACAO.NOME_SOCIAL,
+        Upper(GENERO.DESCRICAO) As SEXOMAIUSCULO,
+        CARGO.DESCRICAO As CARGO,
+        CARGO1.DESCRICAO As CARGO1
+      From
+        AGG_FILIACAO
+        Left Join SITUACAO_FILIADO SITUACAO_FILIADO1 On AGG_FILIACAO.SITUACAO_ORGAOI = SITUACAO_FILIADO1.CODIGO
+        Left Join NIVEL On AGG_FILIACAO.NIVELSALARIAL_ORGAO = NIVEL.CODIGO
+        Left Join NIVEL NIVEL1 On AGG_FILIACAO.NIVELSALARIAL_ORGAOI = NIVEL1.CODIGO
+        Left Join FUNCOES On AGG_FILIACAO.FUNCAO_ORGAO = FUNCOES.CODIGO
+        Left Join FUNCOES FUNCOES1 On AGG_FILIACAO.FUNCAO_ORGAOI = FUNCOES1.CODIGO
+        Left Join PROFISSAO On AGG_FILIACAO.PROFISSAO_ORGAO = PROFISSAO.CODIGO
+        Left Join PROFISSAO PROFISSAO1 On AGG_FILIACAO.PROFISSAO_ORGAOI = PROFISSAO1.CODIGO
+        Left Join VINCULO_EMPREGATICIO On AGG_FILIACAO.VINCULO_ORGAO = VINCULO_EMPREGATICIO.CODIGO
+        Left Join VINCULO_EMPREGATICIO VINCULO_EMPREGATICIO1 On AGG_FILIACAO.VINCULO_ORGAOI = VINCULO_EMPREGATICIO1.CODIGO
+        Left Join EMPRESA On AGG_FILIACAO.CODIGO_EMPRESA = EMPRESA.CODIGO
+        Left Join EMPRESA EMPRESA1 On AGG_FILIACAO.CODIGO_EMPRESAI = EMPRESA1.CODIGO
+        Left Join SITUACAO_FILIADO On AGG_FILIACAO.SITUACAO_FUNCIONAL = SITUACAO_FILIADO.CODIGO
+        Left Join CAD_ESPECIE_INSS On AGG_FILIACAO.CODIGO_ESPECIE_INSS = CAD_ESPECIE_INSS.CODIGO
+        Left Join CAD_ESPECIE_INSS CAD_ESPECIE_INSS1 On AGG_FILIACAO.CODIGO_ESPECIE_INSSI = CAD_ESPECIE_INSS1.CODIGO
+        Left Join GENERO On AGG_FILIACAO.SEXO = GENERO.GENERO
+        Left Join CARGO On AGG_FILIACAO.CARGO_ORGAO = CARGO.CODIGO
+        Left Join CARGO CARGO1 On AGG_FILIACAO.CARGO_ORGAOI = CARGO1.CODIGO
+      Where
+        AGG_FILIACAO.PROTOCOLO = @PROTOCOLO
+        And (@CPF = '' Or AGG_FILIACAO.CPF = @CPF)
+      `,
+      {
+        PROTOCOLO: protocoloKey,
+        CPF: cpfDigits
+      }
+    );
+
+    if (rows.length === 0) {
+      throw new BadRequestException("Protocolo não encontrado para este CPF.");
+    }
+
+    const sindicatoRows = await this.legacyDatabaseService.query<ProtocoloRelatorioSindicatoRow>(
+      `
+      Select Top 1
+        SINDICATO.CNPJ,
+        SINDICATO.RAZAO_SOCIAL,
+        SINDICATO.FANTASIA,
+        SINDICATO.LOGO,
+        SINDICATO.TEXTO_AUTORIZACAO_DESCONTO
+      From
+        SINDICATO
+      `
+    );
+
+    const row = rows[0];
+    const sindicato = sindicatoRows[0];
+
+    return {
+      generatedAt: new Date().toISOString(),
+      detalhe: {
+        protocolo: this.normalizeScalar(row.PROTOCOLO),
+        nrProtocolo: this.normalizeScalar(row.NRPROTOCOLO),
+        cpf: this.normalizeScalar(row.CPFAGGFILIACAO),
+        nome: this.normalizeScalar(row.NOME),
+        nomeSocial: this.normalizeScalar(row.NOME_SOCIAL),
+        especificarGenero: this.normalizeScalar(row.ESPECIFICAR_GENERO),
+        orientacaoSexual: this.normalizeScalar(row.ORIENTACAO_SEXUAL),
+        sexoMaiusculo: this.normalizeScalar(row.SEXOMAIUSCULO),
+        pai: this.normalizeScalar(row.PAI),
+        mae: this.normalizeScalar(row.MAE),
+        naturalidade: this.normalizeScalar(row.NATURALIDADE),
+        rgOculto: this.normalizeScalar(row.RGOCULTO),
+        dataExpRg: this.toDateTimeIso(row.DATAEXPRG),
+        rgOrgao: this.normalizeScalar(row.RG_ORGAO),
+        rgUf: this.normalizeScalar(row.RG_UF),
+        cep: this.normalizeScalar(row.CEP),
+        endereco: this.normalizeScalar(row.ENDERECO),
+        numero: this.normalizeScalar(row.NUMERO),
+        complemento: this.normalizeScalar(row.COMPLEMENTO),
+        bairro: this.normalizeScalar(row.BAIRRO),
+        cidade: this.normalizeScalar(row.CIDADE),
+        estado: this.normalizeScalar(row.ESTADO),
+        telefone: this.normalizeScalar(row.TELEFONE),
+        celular: this.normalizeScalar(row.CELULAR),
+        celularIi: this.normalizeScalar(row.CELULARII),
+        dataNascimento: this.toDateTimeIso(row.DATANASCIMENTO),
+        emailMaiusculo: this.normalizeScalar(row.EMAILMAIUSCULO),
+        estadoCivil: this.normalizeScalar(row.ESTADOCIVIL),
+        dataRegistro: this.toDateTimeIso(row.DATA_REGISTRO),
+        matriculaOrgao: this.normalizeScalar(row.MATRICULA_ORGAO),
+        cargaHorariaOrgao: this.normalizeScalar(row.CARGAHORARIA_ORGAO),
+        admissaoOrgao: this.toDateTimeIso(row.ADMISSAO_ORGAO),
+        aposentadoriaOrgao: this.toDateTimeIso(row.APOSENTADORIA_ORGAO),
+        entePublico: this.normalizeScalar(row.ENTEPUBLICO),
+        codigoEmpresa: this.normalizeScalar(row.CODIGO_EMPRESA),
+        codigoPredio: this.normalizeScalar(row.CODIGO_PREDIO),
+        situacaoFiliacao: this.normalizeScalar(row.SITUACAO_FILIACAO),
+        situacaoFuncional: this.normalizeScalar(row.SITUACAO_FUNCIONAL),
+        funcaoOrgao: this.normalizeScalar(row.FUNCAO_ORGAO),
+        cargoOrgao: this.normalizeScalar(row.CARGO),
+        nivelOrgao: this.normalizeScalar(row.NIVEL_ORGAO),
+        profissaoOrgao: this.normalizeScalar(row.PROFISSAO_ORGAO),
+        vinculoEmpregaticioOrgao: this.normalizeScalar(row.VINCULO_EMPREGATICIO_ORGAO),
+        matriculaOrgaoI: this.normalizeScalar(row.MATRICULA_ORGAOI),
+        admissaoOrgaoI: this.toDateTimeIso(row.ADMISSAO_ORGAOI),
+        aposentadoriaOrgaoI: this.toDateTimeIso(row.APOSENTADORIA_ORGAOI),
+        entePublicoI: this.normalizeScalar(row.ENTEPUBLICOI),
+        codigoEmpresaI: this.normalizeScalar(row.CODIGO_EMPRESAI),
+        codigoPredioI: this.normalizeScalar(row.CODIGO_PREDIOI),
+        situacaoOrgaoI: this.normalizeScalar(row.SITUACAO_ORGAO),
+        funcaoOrgaoI: this.normalizeScalar(row.FUNCAO_ORGAO_I),
+        cargoOrgaoI: this.normalizeScalar(row.CARGO1),
+        nivelOrgaoI: this.normalizeScalar(row.NIVEL_ORGAO_I),
+        profissaoOrgaoI: this.normalizeScalar(row.PROFISSAO_ORGAO_I),
+        vinculoEmpregaticioOrgaoI: this.normalizeScalar(row.VINCULO_EMPREGATICIO_ORGAO_I),
+        autorizarDesconto: this.normalizeScalar(row.AUTORIZARDESCONTO),
+        termoLgpdConfirmacao: this.normalizeScalar(row.TERMOLGPD),
+        termoLgpdTexto: this.normalizeScalar(row.TEXTO_LGPD),
+        dataDescontoInss: this.toDateTimeIso(row.DATA_DESCONTO_INSS),
+        numeroBeneficioInss: this.normalizeScalar(row.NUMERO_BENEFICIO_INSS),
+        dataDescontoInssI: this.toDateTimeIso(row.DATA_DESCONTO_INSSI),
+        numeroBeneficioInssI: this.normalizeScalar(row.NUMERO_BENEFICIO_INSSI),
+        especieInss: this.normalizeScalar(row.ESPECIE_INSS),
+        especieInssI: this.normalizeScalar(row.ESPECIE_INSS_I),
+        descontarInssMaiusculo: this.normalizeScalar(row.DESCONTAR_INSSMAIUSCULO),
+        descontarInssIMaiusculo: this.normalizeScalar(row.DESCONTAR_INSSIMAIUSCULO),
+        foto: this.toFotoDataUrl(row.FOTO),
+        fotoResidencia: this.toFotoDataUrl(row.FOTO_RESIDENCIA),
+        fotoContracheque01: this.toFotoDataUrl(row.FOTO_CONTRACHEQUE01),
+        fotoContracheque02: this.toFotoDataUrl(row.FOTO_CONTRACHEQUE02),
+        fotoRgFrente: this.toFotoDataUrl(row.FOTO_RG_FRENTE),
+        fotoRgVerso: this.toFotoDataUrl(row.FOTO_RG_VERSO),
+        fotoDocumento: this.toFotoDataUrl(row.FOTO_DOCUMENTO),
+        ip: this.normalizeScalar(row.IP)
+      },
+      sindicato: sindicato
+        ? {
+            cnpj: this.normalizeScalar(sindicato.CNPJ),
+            razaoSocial: this.normalizeScalar(sindicato.RAZAO_SOCIAL),
+            fantasia: this.normalizeScalar(sindicato.FANTASIA),
+            logoImg: this.toFotoDataUrl(sindicato.LOGO),
+            textoAutorizacaoDesconto: this.normalizeScalar(sindicato.TEXTO_AUTORIZACAO_DESCONTO)
+          }
+        : null
+    };
   }
 
   async getFichaCadastralByCpf(cpf?: string, usuario?: string) {

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@sintese/ui";
 import { readAuthSession } from "../../auth/services/authSession";
@@ -29,12 +29,82 @@ function getStatusClass(status: string): string {
 export function ProtocolosPage() {
   const session = readAuthSession();
   const cpfDigits = useMemo(() => digitsOnly(session?.cpf ?? ""), [session?.cpf]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
 
   const profileQuery = useMinhaIdentificacaoQuery(cpfDigits, Boolean(cpfDigits));
   const protocolosQuery = useProtocolosQuery(cpfDigits, Boolean(cpfDigits));
 
   const profile = profileQuery.data;
   const protocolos = protocolosQuery.data ?? [];
+
+  const clearNotice = useCallback(() => {
+    setNotice(null);
+  }, []);
+
+  function triggerProtocoloPrint(protocolo: string) {
+    if (isPreparingPrint) {
+      return;
+    }
+
+    setIsPreparingPrint(true);
+    setNotice("Carregando relatório do protocolo para impressão...");
+
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("title", `Impressão protocolo ${protocolo}`);
+    iframe.style.position = "fixed";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.opacity = "0";
+    iframe.style.border = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "-9999px";
+
+    let finished = false;
+    let timeoutId: number | null = null;
+    const cleanup = () => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      setIsPreparingPrint(false);
+      window.removeEventListener("message", onMessage);
+      iframe.remove();
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+      const payload = event.data as { type?: string } | null;
+      if (payload?.type === "protocolo-print-triggered") {
+        setNotice(null);
+        window.setTimeout(() => {
+          cleanup();
+        }, 1200);
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      setNotice("Não foi possível preparar a impressão deste protocolo agora. Tente novamente.");
+    }, 30000);
+
+    const query = new URLSearchParams({
+      protocolo,
+      autoPrint: "1",
+      embedded: "1"
+    });
+
+    iframe.src = `/protocolo-relatorio?${query.toString()}`;
+    document.body.appendChild(iframe);
+  }
 
   return (
     <section className="auth-card-modern mx-auto w-full max-w-[560px]">
@@ -50,6 +120,17 @@ export function ProtocolosPage() {
       {!cpfDigits ? <div className="alert-error mb-3">Sessão inválida. Faça login novamente.</div> : null}
       {profileQuery.isError ? <div className="alert-error mb-3">Não foi possível carregar seu nome.</div> : null}
       {protocolosQuery.isError ? <div className="alert-error mb-3">Não foi possível carregar seus protocolos.</div> : null}
+
+      {notice ? (
+        <div className="alert-info mb-3" role="status" aria-live="polite">
+          <div className="flex items-center justify-between gap-3">
+            <span>{notice}</span>
+            <button type="button" className="text-xs font-bold text-slate-700" onClick={clearNotice}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         <div>
@@ -109,22 +190,16 @@ export function ProtocolosPage() {
                 {(item.codigoEmpresa02 || item.empresa02) ? <p>{buildEmpresaLabel(item.codigoEmpresa02, item.empresa02)}</p> : null}
               </div>
 
-              {(item.fotoContracheque01 || item.fotoContracheque02) ? (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {item.fotoContracheque01 ? (
-                    <img
-                      src={item.fotoContracheque01}
-                      alt="Contracheque 01"
-                      className="h-24 w-full rounded-lg border border-slate-300 object-cover"
-                    />
-                  ) : null}
-                  {item.fotoContracheque02 ? (
-                    <img
-                      src={item.fotoContracheque02}
-                      alt="Contracheque 02"
-                      className="h-24 w-full rounded-lg border border-slate-300 object-cover"
-                    />
-                  ) : null}
+              {item.protocolo ? (
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    className="btn-modern-primary w-full"
+                    onClick={() => triggerProtocoloPrint(item.protocolo as string)}
+                    disabled={isPreparingPrint}
+                  >
+                    Imprimir protocolo
+                  </Button>
                 </div>
               ) : null}
             </section>
@@ -134,7 +209,7 @@ export function ProtocolosPage() {
 
       <div className="mt-4">
         <Link to="/menu-principal" className="block">
-          <Button type="button" className="btn-modern-danger w-full">
+          <Button type="button" className="btn-modern-danger w-full" disabled={isPreparingPrint}>
             Sair
           </Button>
         </Link>

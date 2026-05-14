@@ -17,6 +17,8 @@ import { MainMenuPage } from "../features/menu/pages/MainMenuPage";
 import { MinhasFiliacoesPage } from "../features/minhas-filiacoes/pages/MinhasFiliacoesPage";
 import { ParceirosPage } from "../features/parceiros/pages/ParceirosPage";
 import { ProtocolosPage } from "../features/protocolos/pages/ProtocolosPage";
+import { ProtocoloRelatorioPage } from "../features/protocolos/pages/ProtocoloRelatorioPage";
+import { RegenciaClassePage } from "../features/regencia-classe/pages/RegenciaClassePage";
 
 export function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => hasAuthSession());
@@ -66,6 +68,14 @@ export function App() {
         <Route
           path="/protocolos"
           element={isAuthenticated ? <ProtocolosPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/consulta-regencia-classe"
+          element={isAuthenticated ? <RegenciaClassePage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/protocolo-relatorio"
+          element={isAuthenticated ? <ProtocoloRelatorioPage /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/ficha-cadastral"

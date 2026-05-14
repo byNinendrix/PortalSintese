@@ -27,6 +27,16 @@ export class UsersController {
     return this.usersService.getProtocolosByCpf(cpf);
   }
 
+  @Get("regencia-classe")
+  getRegenciaClasse(@Query("cpf") cpf?: string) {
+    return this.usersService.getRegenciaClasseByCpf(cpf);
+  }
+
+  @Get("protocolos/relatorio")
+  getProtocoloRelatorio(@Query("protocolo") protocolo?: string, @Query("cpf") cpf?: string) {
+    return this.usersService.getProtocoloRelatorio(protocolo, cpf);
+  }
+
   @Get("ficha-cadastral")
   getFichaCadastral(@Query("cpf") cpf?: string, @Query("usuario") usuario?: string) {
     return this.usersService.getFichaCadastralByCpf(cpf, usuario);

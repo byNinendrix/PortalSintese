@@ -110,6 +110,113 @@ export interface ProtocoloSummary {
   fotoContracheque02: string | null;
 }
 
+export interface RegenciaClasseItem {
+  valor: number | null;
+  nome: string | null;
+  cpf: string | null;
+  dataNascimento: string | null;
+}
+
+export interface RegenciaClasseResponse {
+  cpf: Cpf;
+  nome: string | null;
+  dataNascimento: string | null;
+  valorTotal: number | null;
+  hasData: boolean;
+  registros: RegenciaClasseItem[];
+}
+
+export interface ProtocoloRelatorioDetalhe {
+  protocolo: string | null;
+  nrProtocolo: string | null;
+  cpf: string | null;
+  nome: string | null;
+  nomeSocial: string | null;
+  especificarGenero: string | null;
+  orientacaoSexual: string | null;
+  sexoMaiusculo: string | null;
+  pai: string | null;
+  mae: string | null;
+  naturalidade: string | null;
+  rgOculto: string | null;
+  dataExpRg: string | null;
+  rgOrgao: string | null;
+  rgUf: string | null;
+  cep: string | null;
+  endereco: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  telefone: string | null;
+  celular: string | null;
+  celularIi: string | null;
+  dataNascimento: string | null;
+  emailMaiusculo: string | null;
+  estadoCivil: string | null;
+  dataRegistro: string | null;
+  matriculaOrgao: string | null;
+  cargaHorariaOrgao: string | null;
+  admissaoOrgao: string | null;
+  aposentadoriaOrgao: string | null;
+  entePublico: string | null;
+  codigoEmpresa: string | null;
+  codigoPredio: string | null;
+  situacaoFiliacao: string | null;
+  situacaoFuncional: string | null;
+  funcaoOrgao: string | null;
+  cargoOrgao: string | null;
+  nivelOrgao: string | null;
+  profissaoOrgao: string | null;
+  vinculoEmpregaticioOrgao: string | null;
+  matriculaOrgaoI: string | null;
+  admissaoOrgaoI: string | null;
+  aposentadoriaOrgaoI: string | null;
+  entePublicoI: string | null;
+  codigoEmpresaI: string | null;
+  codigoPredioI: string | null;
+  situacaoOrgaoI: string | null;
+  funcaoOrgaoI: string | null;
+  cargoOrgaoI: string | null;
+  nivelOrgaoI: string | null;
+  profissaoOrgaoI: string | null;
+  vinculoEmpregaticioOrgaoI: string | null;
+  autorizarDesconto: string | null;
+  termoLgpdConfirmacao: string | null;
+  termoLgpdTexto: string | null;
+  dataDescontoInss: string | null;
+  numeroBeneficioInss: string | null;
+  dataDescontoInssI: string | null;
+  numeroBeneficioInssI: string | null;
+  especieInss: string | null;
+  especieInssI: string | null;
+  descontarInssMaiusculo: string | null;
+  descontarInssIMaiusculo: string | null;
+  foto: string | null;
+  fotoResidencia: string | null;
+  fotoContracheque01: string | null;
+  fotoContracheque02: string | null;
+  fotoRgFrente: string | null;
+  fotoRgVerso: string | null;
+  fotoDocumento: string | null;
+  ip: string | null;
+}
+
+export interface ProtocoloRelatorioSindicato {
+  cnpj: string | null;
+  razaoSocial: string | null;
+  fantasia: string | null;
+  logoImg: string | null;
+  textoAutorizacaoDesconto: string | null;
+}
+
+export interface ProtocoloRelatorioResponse {
+  generatedAt: string;
+  detalhe: ProtocoloRelatorioDetalhe;
+  sindicato: ProtocoloRelatorioSindicato | null;
+}
+
 export interface FichaCadastralPessoa {
   cpfOculto: string | null;
   nome: string | null;

@@ -15,7 +15,7 @@ type MenuAction = {
 
 const actions: MenuAction[] = [
   { label: "Solicitar Filiação", to: "/cadastro" },
-  { label: "Consulta de Cálculo de Regência de Classe", requiresFiliacaoAtiva: true },
+  { label: "Consulta de Cálculo de Regência de Classe", to: "/consulta-regencia-classe", requiresFiliacaoAtiva: true },
   { label: "Protocolo(s)", to: "/protocolos" },
   { label: "Carteira", requiresFiliacaoAtiva: true, triggerCarteira: true },
   { label: "Ficha Cadastral", requiresFiliacaoAtiva: true, triggerFichaPrint: true },
