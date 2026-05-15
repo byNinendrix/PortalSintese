@@ -1305,14 +1305,12 @@ export function SolicitarFiliacaoPage() {
 
       {step === 2 ? (
         <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button type="button" className="btn-modern-danger w-full" onClick={() => setStep(1)}>
+            Voltar
+          </Button>
           <Button type="button" className="btn-modern-danger w-full" onClick={handleSubmit} isLoading={createMutation.isPending}>
             Confirmar solicitação
           </Button>
-          <Link to="/menu-principal" className="block">
-            <Button type="button" className="btn-modern-danger w-full">
-              Sair
-            </Button>
-          </Link>
         </div>
       ) : null}
 

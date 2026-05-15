@@ -5,6 +5,7 @@
   "description": "Monorepo da nova plataforma SINTESE",
   "packageManager": "pnpm@10.12.1",
   "scripts": {
+    "check:encoding": "node scripts/check-encoding.mjs",
     "dev": "pnpm -r --parallel dev",
     "dev:web": "pnpm --filter @sintese/web dev",
     "dev:api": "pnpm --filter @sintese/api start:dev",
@@ -12,8 +13,8 @@
     "local:stop": "powershell -ExecutionPolicy Bypass -File scripts/local-dev.ps1 stop",
     "local:status": "powershell -ExecutionPolicy Bypass -File scripts/local-dev.ps1 status",
     "local:restart": "powershell -ExecutionPolicy Bypass -File scripts/local-dev.ps1 restart",
-    "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
+    "build": "pnpm check:encoding && pnpm -r build",
+    "lint": "pnpm check:encoding && pnpm -r lint",
     "format": "pnpm -r format"
   },
   "pnpm": {
