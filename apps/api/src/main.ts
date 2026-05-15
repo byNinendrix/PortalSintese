@@ -23,6 +23,19 @@ async function bootstrap() {
     origin: allowedOrigins.length > 0 ? allowedOrigins : env.CORS_ORIGIN,
     credentials: true
   });
+  app.use(
+    (
+      _req: unknown,
+      res: { getHeader: (name: string) => unknown; setHeader: (name: string, value: string) => void },
+      next: () => void
+    ) => {
+    const currentType = res.getHeader("Content-Type");
+    if (!currentType) {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+    }
+    next();
+    }
+  );
   app.useBodyParser("json", { limit: "10mb" });
   app.useBodyParser("urlencoded", { extended: true, limit: "10mb" });
   await app.listen(env.PORT);

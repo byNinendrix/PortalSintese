@@ -1,4 +1,4 @@
-﻿# POC Técnica - Conexão com SQL Server 2014
+# POC Técnica - Conexão com SQL Server 2014
 
 ## Objetivo
 

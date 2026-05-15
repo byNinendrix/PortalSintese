@@ -1,4 +1,4 @@
-﻿# SQL Inventory Scripts - README
+# SQL Inventory Scripts - README
 
 ## Finalidade
 

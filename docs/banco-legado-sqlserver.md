@@ -1,4 +1,4 @@
-﻿# Banco Legado SQL Server 2014 - Plano Database-First
+# Banco Legado SQL Server 2014 - Plano Database-First
 
 ## Objetivo
 

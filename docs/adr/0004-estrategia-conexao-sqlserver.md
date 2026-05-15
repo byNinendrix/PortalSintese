@@ -1,4 +1,4 @@
-﻿# ADR 0004 - Estratégia de Conexão com SQL Server 2014
+# ADR 0004 - Estratégia de Conexão com SQL Server 2014
 
 - Status: Proposto
 - Data: 2026-05-04

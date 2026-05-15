@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@sintese/ui";
 import { useAceitarLgpdMutation } from "../hooks/useAceitarLgpdMutation";

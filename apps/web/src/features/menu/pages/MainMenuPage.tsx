@@ -1,4 +1,4 @@
-﻿import { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@sintese/ui";
 import { TimedAlert } from "../../../shared/components/TimedAlert";
@@ -14,7 +14,7 @@ type MenuAction = {
 };
 
 const actions: MenuAction[] = [
-  { label: "Solicitar Filiação", to: "/cadastro" },
+  { label: "Solicitar Filiação", to: "/solicitar-filiacao" },
   { label: "Consulta de Cálculo de Regência de Classe", to: "/consulta-regencia-classe", requiresFiliacaoAtiva: true },
   { label: "Protocolo(s)", to: "/protocolos" },
   { label: "Carteira", requiresFiliacaoAtiva: true, triggerCarteira: true },

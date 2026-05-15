@@ -131,6 +131,10 @@ export class LegacyDatabaseService implements LegacyDatabaseGateway {
 
     if (params) {
       for (const [key, value] of Object.entries(params)) {
+        if (typeof value === "string") {
+          request.input(key, mssql.NVarChar(mssql.MAX), value);
+          continue;
+        }
         request.input(key, value as string | number | boolean | Date | Buffer | null);
       }
     }

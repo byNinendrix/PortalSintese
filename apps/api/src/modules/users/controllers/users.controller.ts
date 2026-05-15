@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, Req } from "@nestjs/common";
+import { CreateSolicitacaoFiliacaoDto } from "../dto/create-solicitacao-filiacao.dto";
 import { CreateUserDto } from "../dto/create-user.dto";
 import { UpdateUserDataDto } from "../dto/update-user-data.dto";
 import { UsersService } from "../services/users.service";
@@ -30,6 +31,16 @@ export class UsersController {
   @Get("regencia-classe")
   getRegenciaClasse(@Query("cpf") cpf?: string) {
     return this.usersService.getRegenciaClasseByCpf(cpf);
+  }
+
+  @Get("solicitar-filiacao")
+  getSolicitarFiliacao(@Query("cpf") cpf?: string) {
+    return this.usersService.getSolicitarFiliacaoByCpf(cpf);
+  }
+
+  @Post("solicitar-filiacao")
+  createSolicitarFiliacao(@Body() payload: CreateSolicitacaoFiliacaoDto, @Req() request?: { ip?: string }) {
+    return this.usersService.createSolicitarFiliacao(payload, request?.ip);
   }
 
   @Get("protocolos/relatorio")
@@ -85,6 +96,11 @@ export class UsersController {
   @Get("lookups/fatores-sanguineos")
   getLookupFatoresSanguineos() {
     return this.usersService.getLookupFatoresSanguineos();
+  }
+
+  @Get("lookups/filiacao-vinculos")
+  getLookupFiliacaoVinculos() {
+    return this.usersService.getLookupFiliacaoVinculos();
   }
 
   @Post()

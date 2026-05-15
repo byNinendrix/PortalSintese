@@ -386,6 +386,130 @@ export interface LookupOption {
   label: string;
 }
 
+export interface SolicitacaoFiliacaoBootstrapResponse {
+  cpf: Cpf;
+  nome: string;
+  nomeSocial: string;
+  pai: string;
+  mae: string;
+  naturalidade: string;
+  cep: string;
+  endereco: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  telefone: string;
+  celular: string;
+  celularIi: string;
+  dataNascimento: string | null;
+  email: string;
+  estadoCivil: string;
+  especificarGenero: string;
+  orientacaoSexual: string;
+  sexo: string;
+  rg: string;
+  dataExpRg: string | null;
+  sangueTpRh: string;
+  rgOrgao: string;
+  rgUf: string;
+  raca: string;
+  fotoPerfilUrl: string | null;
+  fatoresSanguineos: LookupOption[];
+}
+
+export interface SolicitacaoFiliacaoVinculoLookupsResponse {
+  empresas: LookupOption[];
+  situacoesFuncionais: LookupOption[];
+  niveisCarreira: LookupOption[];
+  cargos: LookupOption[];
+  funcoesMagisterio: LookupOption[];
+  formacoesProfissionais: LookupOption[];
+  regimesTrabalho: LookupOption[];
+  especiesInss: LookupOption[];
+}
+
+export interface CreateSolicitacaoFiliacaoRequest {
+  cpf: Cpf;
+  nome: string;
+  nomeSocial?: string;
+  pai?: string;
+  mae?: string;
+  naturalidade?: string;
+  cep?: string;
+  endereco?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  telefone?: string;
+  celular?: string;
+  celularIi?: string;
+  dataNascimento?: string;
+  email?: string;
+  estadoCivil?: string;
+  especificarGenero?: string;
+  orientacaoSexual?: string;
+  sexo?: string;
+  rg?: string;
+  dataExpRg?: string;
+  sangueTpRh?: string;
+  rgOrgao?: string;
+  rgUf?: string;
+  raca?: string;
+  matriculaOrgao?: string;
+  codigoEmpresa?: string;
+  codigoPredio?: string;
+  nivelSalarialOrgao?: string;
+  situacaoFuncional?: string;
+  cargoOrgao?: string;
+  funcaoOrgao?: string;
+  profissaoOrgao?: string;
+  vinculoOrgao?: string;
+  cargaHorariaOrgao?: string;
+  admissaoOrgao?: string;
+  aposentadoriaOrgao?: string;
+  adicionarOutraFiliacao?: boolean;
+  matriculaOrgaoI?: string;
+  codigoEmpresaI?: string;
+  codigoPredioI?: string;
+  nivelSalarialOrgaoI?: string;
+  situacaoOrgaoI?: string;
+  cargoOrgaoI?: string;
+  funcaoOrgaoI?: string;
+  profissaoOrgaoI?: string;
+  vinculoOrgaoI?: string;
+  cargaHorariaOrgaoI?: string;
+  admissaoOrgaoI?: string;
+  aposentadoriaOrgaoI?: string;
+  autorizarDesconto?: boolean;
+  autorizarLgpd?: boolean;
+  termoLgpd?: string;
+  descontarInss?: "N" | "S";
+  dataDescontoInss?: string;
+  numeroBeneficioInss?: string;
+  codigoEspecieInss?: string;
+  descontarInssI?: "N" | "S";
+  dataDescontoInssI?: string;
+  numeroBeneficioInssI?: string;
+  codigoEspecieInssI?: string;
+  fotoPerfilBase64?: string;
+  fotoResidenciaBase64?: string;
+  fotoContracheque01Base64?: string;
+  fotoContracheque02Base64?: string;
+  fotoDocumentoBase64?: string;
+  fotoRgFrenteBase64?: string;
+  fotoRgVersoBase64?: string;
+}
+
+export interface CreateSolicitacaoFiliacaoResponse {
+  success: true;
+  protocolo: string;
+  message: string;
+}
+
 export interface ConvenioSummary {
   id: string;
   title: string;

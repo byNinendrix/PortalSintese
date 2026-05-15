@@ -1,4 +1,4 @@
-﻿# Runbook - Inventario SQL Server 2014 (Somente Leitura)
+# Runbook - Inventario SQL Server 2014 (Somente Leitura)
 
 ## Objetivo
 

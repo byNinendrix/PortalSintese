@@ -1,4 +1,4 @@
-﻿# Frontend Data Layer
+# Frontend Data Layer
 
 ## Objetivo
 

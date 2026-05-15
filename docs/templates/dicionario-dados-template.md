@@ -1,4 +1,4 @@
-﻿# Template - Dicionario de Dados (Database-First)
+# Template - Dicionario de Dados (Database-First)
 
 ## Instrucoes
 

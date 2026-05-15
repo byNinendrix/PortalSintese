@@ -1,4 +1,4 @@
-﻿import type { AtualizarDadosPessoaResponse, LookupOption, UpdateUserDataRequest, UpdateUserDataResponse } from "@sintese/types";
+import type { AtualizarDadosPessoaResponse, LookupOption, UpdateUserDataRequest, UpdateUserDataResponse } from "@sintese/types";
 import { USE_MOCKS } from "../../../config/featureFlags";
 import { apiRequest } from "../../../shared/services/apiClient";
 

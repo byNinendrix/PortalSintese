@@ -1,4 +1,4 @@
-﻿# ADR 0001 - Arquitetura Inicial da Migração Maker
+# ADR 0001 - Arquitetura Inicial da Migração Maker
 
 - Status: Aceito
 - Data: 2026-05-04

@@ -1,4 +1,4 @@
-﻿# Design System - Portal SINTESE
+# Design System - Portal SINTESE
 
 ## Objetivo
 

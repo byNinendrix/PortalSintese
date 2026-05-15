@@ -19,6 +19,7 @@ import { ParceirosPage } from "../features/parceiros/pages/ParceirosPage";
 import { ProtocolosPage } from "../features/protocolos/pages/ProtocolosPage";
 import { ProtocoloRelatorioPage } from "../features/protocolos/pages/ProtocoloRelatorioPage";
 import { RegenciaClassePage } from "../features/regencia-classe/pages/RegenciaClassePage";
+import { SolicitarFiliacaoPage } from "../features/solicitar-filiacao/pages/SolicitarFiliacaoPage";
 
 export function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => hasAuthSession());
@@ -72,6 +73,10 @@ export function App() {
         <Route
           path="/consulta-regencia-classe"
           element={isAuthenticated ? <RegenciaClassePage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/solicitar-filiacao"
+          element={isAuthenticated ? <SolicitarFiliacaoPage /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/protocolo-relatorio"

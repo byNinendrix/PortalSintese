@@ -73,13 +73,13 @@ export function RegenciaClassePage() {
 
         {!regenciaQuery.isLoading && regencia && regencia.hasData ? (
           <div className="rounded-xl bg-[#d77900] px-4 py-5 text-white">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div className="text-4xl leading-none" aria-hidden="true">
                 💰
               </div>
-              <div className="text-right">
+              <div className="min-w-0 w-full text-left sm:text-right">
                 <p className="text-lg font-semibold">Valor</p>
-                <p className="text-4xl font-extrabold leading-none">{formatMoney(regencia.valorTotal)}</p>
+                <p className="break-words text-3xl font-extrabold leading-none sm:text-4xl">{formatMoney(regencia.valorTotal)}</p>
               </div>
             </div>
           </div>
@@ -119,4 +119,5 @@ export function RegenciaClassePage() {
     </section>
   );
 }
+
 

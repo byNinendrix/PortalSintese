@@ -1,4 +1,4 @@
-﻿import type { AuthTokensResponse } from "@sintese/types";
+import type { AuthTokensResponse } from "@sintese/types";
 import type { UserProfileResponse } from "@sintese/types";
 
 const AUTH_SESSION_KEY = "portal_sintese_auth_session";

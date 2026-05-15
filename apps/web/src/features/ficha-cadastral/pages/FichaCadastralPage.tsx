@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@sintese/ui";
 import { digitsOnly, formatCpf } from "../../../shared/utils/masks";

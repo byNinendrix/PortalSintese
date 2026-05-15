@@ -1,4 +1,4 @@
-﻿# Legacy Database Layer
+# Legacy Database Layer
 
 ## Papel da Camada
 

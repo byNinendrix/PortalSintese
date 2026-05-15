@@ -1,4 +1,4 @@
-﻿import { useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@sintese/ui";
 import { digitsOnly, formatCpf, formatPhoneBr, isValidCpf, normalizeEmail } from "../../../shared/utils/masks";

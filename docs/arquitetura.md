@@ -1,4 +1,4 @@
-﻿# Arquitetura Inicial (Atualizada para Database-First)
+# Arquitetura Inicial (Atualizada para Database-First)
 
 ## Direcao Arquitetural
 

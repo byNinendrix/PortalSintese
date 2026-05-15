@@ -1,4 +1,4 @@
-﻿# Template - Mapeamento de Tabelas por Módulo
+# Template - Mapeamento de Tabelas por Módulo
 
 ## Instrucoes
 

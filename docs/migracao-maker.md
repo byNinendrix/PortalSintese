@@ -1,4 +1,4 @@
-﻿# Roadmap de Migração Maker (Softwell) -> Nova Plataforma
+# Roadmap de Migração Maker (Softwell) -> Nova Plataforma
 
 ## 1. Inventario do Banco Legado (SQL Server 2014)
 

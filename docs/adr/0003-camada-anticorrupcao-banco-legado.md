@@ -1,4 +1,4 @@
-﻿# ADR 0003 - Camada Anticorrupcao para Banco Legado
+# ADR 0003 - Camada Anticorrupcao para Banco Legado
 
 - Status: Aceito
 - Data: 2026-05-04

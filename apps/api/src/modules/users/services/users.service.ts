@@ -1,9 +1,10 @@
-﻿import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import * as QRCode from "qrcode";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
 import { renderPortalEmailTemplate } from "../../../shared/email/portal-email.template";
+import { CreateSolicitacaoFiliacaoDto } from "../dto/create-solicitacao-filiacao.dto";
 import { CreateUserDto } from "../dto/create-user.dto";
 import { UpdateUserDataDto } from "../dto/update-user-data.dto";
 
@@ -299,6 +300,50 @@ interface LookupRacaRow {
 interface LookupCidadeRow {
   CIDADE?: string | null;
   UF?: string | null;
+}
+
+interface LookupCodigoDescricaoRow {
+  CODIGO?: string | number | null;
+  DESCRICAO?: string | null;
+}
+
+interface SolicitacaoFiliacaoPessoaRow {
+  CPF: string;
+  NOME?: string | null;
+  NOME_SOCIAL?: string | null;
+  PAI?: string | null;
+  MAE?: string | null;
+  NATURALIDADE?: string | null;
+  CEP?: string | null;
+  ENDERECO?: string | null;
+  NUMERO?: string | null;
+  COMPLEMENTO?: string | null;
+  BAIRRO?: string | null;
+  CIDADE?: string | null;
+  ESTADO?: string | null;
+  TELEFONE?: string | null;
+  CELULAR?: string | null;
+  CELULARII?: string | null;
+  DATANASCIMENTO?: Date | string | null;
+  ESTADOCIVIL?: string | null;
+  ESPECIFICAR_GENERO?: string | null;
+  ORIENTACAO_SEXUAL?: string | null;
+  SEXO?: string | null;
+  RG?: string | null;
+  DATAEXPRG?: Date | string | null;
+  SANGUE_TP_RH?: string | null;
+  RG_ORGAO?: string | null;
+  RG_UF?: string | null;
+  RACA?: string | null;
+  FOTO_IMG?: Buffer | string | null;
+}
+
+interface SolicitacaoFiliacaoLoginRow {
+  EMAIL?: string | null;
+}
+
+interface ProtocoloExistsRow {
+  PROTOCOLO?: string | null;
 }
 
 interface PessoaUpdateSnapshotRow {
@@ -751,6 +796,39 @@ export class UsersService {
     return normalized === "1" || normalized === "s" || normalized === "sim" || normalized === "true";
   }
 
+  private boolToLegacy(value?: boolean): number {
+    return value ? 1 : 0;
+  }
+
+  private normalizeIpAddress(ipValue?: string | null): string | null {
+    const raw = (ipValue ?? "").trim();
+    if (!raw) {
+      return null;
+    }
+
+    if (raw === "::1") {
+      return "127.0.0.1";
+    }
+
+    if (raw.startsWith("::ffff:")) {
+      return raw.slice("::ffff:".length);
+    }
+
+    return raw;
+  }
+
+  private parseOptionalImage(value: string | undefined, fieldLabel: string): Buffer | null {
+    if (typeof value !== "string") {
+      return null;
+    }
+
+    try {
+      return this.parseFotoFromDataUrl(value);
+    } catch {
+      throw new BadRequestException(`Imagem inválida no campo ${fieldLabel}.`);
+    }
+  }
+
   private generateFirstPassword(): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
     const randomPart = (size: number) =>
@@ -1113,6 +1191,556 @@ Por segurança, altere essa senha no primeiro acesso.`;
       valorTotal,
       hasData: registros.length > 0,
       registros
+    };
+  }
+
+  async getSolicitarFiliacaoByCpf(cpf?: string) {
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const pessoaRows = await this.legacyDatabaseService.query<SolicitacaoFiliacaoPessoaRow>(
+      `
+      Select Top 1
+        PESSOAS.CPF,
+        PESSOAS.NOME,
+        PESSOAS.NOME_SOCIAL,
+        PESSOAS.PAI,
+        PESSOAS.MAE,
+        PESSOAS.NATURALIDADE,
+        PESSOAS.CEP,
+        PESSOAS.ENDERECO,
+        PESSOAS.NUMERO,
+        PESSOAS.COMPLEMENTO,
+        PESSOAS.BAIRRO,
+        PESSOAS.CIDADE,
+        PESSOAS.ESTADO,
+        PESSOAS.TELEFONE,
+        PESSOAS.CELULAR,
+        PESSOAS.CELULARII,
+        PESSOAS.DATANASCIMENTO,
+        PESSOAS.ESTADOCIVIL,
+        PESSOAS.ESPECIFICAR_GENERO,
+        PESSOAS.ORIENTACAO_SEXUAL,
+        PESSOAS.SEXO,
+        PESSOAS.RG,
+        PESSOAS.DATAEXPRG,
+        PESSOAS.SANGUE_TP_RH,
+        PESSOAS.RG_ORGAO,
+        PESSOAS.RG_UF,
+        PESSOAS.RACA,
+        PESSOAS.FOTO_IMG
+      From
+        PESSOAS
+      Where
+        PESSOAS.CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    const loginRows = await this.legacyDatabaseService.query<SolicitacaoFiliacaoLoginRow>(
+      `
+      Select Top 1
+        PESSOAS_LOGIN.EMAIL
+      From
+        PESSOAS_LOGIN
+      Where
+        PESSOAS_LOGIN.CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    const pessoa = pessoaRows[0];
+    const estadoCivilResolved = await this.resolveEstadoCivil(cpfDigits, pessoa?.ESTADOCIVIL);
+
+    return {
+      cpf: this.maskCpf(cpfDigits),
+      nome: pessoa?.NOME?.trim() ?? "",
+      nomeSocial: pessoa?.NOME_SOCIAL?.trim() ?? "",
+      pai: pessoa?.PAI?.trim() ?? "",
+      mae: pessoa?.MAE?.trim() ?? "",
+      naturalidade: pessoa?.NATURALIDADE?.trim() ?? "",
+      cep: this.normalizeCep(pessoa?.CEP ?? undefined) ?? "",
+      endereco: pessoa?.ENDERECO?.trim() ?? "",
+      numero: pessoa?.NUMERO?.trim() ?? "",
+      complemento: pessoa?.COMPLEMENTO?.trim() ?? "",
+      bairro: pessoa?.BAIRRO?.trim() ?? "",
+      cidade: pessoa?.CIDADE?.trim() ?? "",
+      estado: pessoa?.ESTADO?.trim().toUpperCase() ?? "",
+      telefone: pessoa?.TELEFONE?.trim() ?? "",
+      celular: pessoa?.CELULAR?.trim() ?? "",
+      celularIi: pessoa?.CELULARII?.trim() ?? "",
+      dataNascimento: this.toDateIso(pessoa?.DATANASCIMENTO),
+      email: loginRows[0]?.EMAIL?.trim().toLowerCase() ?? "",
+      estadoCivil: estadoCivilResolved,
+      especificarGenero: pessoa?.ESPECIFICAR_GENERO?.trim() ?? "",
+      orientacaoSexual: pessoa?.ORIENTACAO_SEXUAL?.trim() ?? "",
+      sexo: pessoa?.SEXO?.trim() ?? "",
+      rg: pessoa?.RG?.trim() ?? "",
+      dataExpRg: this.toDateIso(pessoa?.DATAEXPRG),
+      sangueTpRh: pessoa?.SANGUE_TP_RH?.trim() ?? "",
+      rgOrgao: pessoa?.RG_ORGAO?.trim() ?? "",
+      rgUf: pessoa?.RG_UF?.trim() ?? "",
+      raca: pessoa?.RACA?.trim() ?? "",
+      fotoPerfilUrl: this.toFotoDataUrl(pessoa?.FOTO_IMG),
+      fatoresSanguineos: this.getLookupFatoresSanguineos()
+    };
+  }
+
+  async getLookupFiliacaoVinculos() {
+    const [empresas, situacoes, niveis, cargos, funcoes, profissoes, vinculos, especiesInss] = await Promise.all([
+      this.legacyDatabaseService.query<LookupCodigoDescricaoRow>(
+        `
+        Select
+          EMPRESA.CODIGO,
+          EMPRESA.DESCRICAO
+        From
+          EMPRESA
+        Order By
+          EMPRESA.DESCRICAO
+        `
+      ),
+      this.legacyDatabaseService.query<LookupCodigoDescricaoRow>(
+        `
+        Select
+          SITUACAO_FILIADO.CODIGO,
+          SITUACAO_FILIADO.DESCRICAO
+        From
+          SITUACAO_FILIADO
+        Order By
+          SITUACAO_FILIADO.DESCRICAO
+        `
+      ),
+      this.legacyDatabaseService.query<LookupCodigoDescricaoRow>(
+        `
+        Select
+          NIVEL.CODIGO,
+          NIVEL.DESCRICAO
+        From
+          NIVEL
+        Order By
+          NIVEL.DESCRICAO
+        `
+      ),
+      this.legacyDatabaseService.query<LookupCodigoDescricaoRow>(
+        `
+        Select
+          CARGO.CODIGO,
+          CARGO.DESCRICAO
+        From
+          CARGO
+        Order By
+          CARGO.DESCRICAO
+        `
+      ),
+      this.legacyDatabaseService.query<LookupCodigoDescricaoRow>(
+        `
+        Select
+          FUNCOES.CODIGO,
+          FUNCOES.DESCRICAO
+        From
+          FUNCOES
+        Order By
+          FUNCOES.DESCRICAO
+        `
+      ),
+      this.legacyDatabaseService.query<LookupCodigoDescricaoRow>(
+        `
+        Select
+          PROFISSAO.CODIGO,
+          PROFISSAO.DESCRICAO
+        From
+          PROFISSAO
+        Order By
+          PROFISSAO.DESCRICAO
+        `
+      ),
+      this.legacyDatabaseService.query<LookupCodigoDescricaoRow>(
+        `
+        Select
+          VINCULO_EMPREGATICIO.CODIGO,
+          VINCULO_EMPREGATICIO.DESCRICAO
+        From
+          VINCULO_EMPREGATICIO
+        Order By
+          VINCULO_EMPREGATICIO.DESCRICAO
+        `
+      ),
+      this.legacyDatabaseService.query<LookupCodigoDescricaoRow>(
+        `
+        Select
+          CAD_ESPECIE_INSS.CODIGO,
+          CAD_ESPECIE_INSS.DESCRICAO
+        From
+          CAD_ESPECIE_INSS
+        Order By
+          CAD_ESPECIE_INSS.DESCRICAO
+        `
+      )
+    ]);
+
+    const toOption = (rows: LookupCodigoDescricaoRow[]) =>
+      rows.map((row) => ({
+        value: String(row.CODIGO ?? "").trim(),
+        label: row.DESCRICAO?.trim() ?? ""
+      }));
+
+    return {
+      empresas: toOption(empresas),
+      situacoesFuncionais: toOption(situacoes),
+      niveisCarreira: toOption(niveis),
+      cargos: toOption(cargos),
+      funcoesMagisterio: toOption(funcoes),
+      formacoesProfissionais: toOption(profissoes),
+      regimesTrabalho: toOption(vinculos),
+      especiesInss: toOption(especiesInss)
+    };
+  }
+
+  private async generateUniqueProtocolo(): Promise<string> {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const protocoloCandidate = randomUUID().toUpperCase();
+      const rows = await this.legacyDatabaseService.query<ProtocoloExistsRow>(
+        `
+        Select Top 1
+          AGG_FILIACAO.PROTOCOLO
+        From
+          AGG_FILIACAO
+        Where
+          AGG_FILIACAO.PROTOCOLO = @PROTOCOLO
+        `,
+        { PROTOCOLO: protocoloCandidate }
+      );
+
+      if (rows.length === 0) {
+        return protocoloCandidate;
+      }
+    }
+
+    throw new InternalServerErrorException("Não foi possível gerar protocolo único de filiação.");
+  }
+
+  async createSolicitarFiliacao(payload: CreateSolicitacaoFiliacaoDto, requestIp?: string | null) {
+    const cpfDigits = this.sanitizeCpf(payload.cpf ?? "");
+
+    if (cpfDigits.length !== 11) {
+      throw new BadRequestException("CPF inválido.");
+    }
+
+    const loginRows = await this.legacyDatabaseService.query<SolicitacaoFiliacaoLoginRow>(
+      `
+      Select Top 1
+        PESSOAS_LOGIN.EMAIL
+      From
+        PESSOAS_LOGIN
+      Where
+        PESSOAS_LOGIN.CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    const emailBloqueado = this.normalizeOptionalText(loginRows[0]?.EMAIL ?? undefined)?.toLowerCase() ?? null;
+
+    const requiredFields = [
+      { label: "Nome Completo", value: payload.nome },
+      { label: "RG", value: payload.rg },
+      { label: "Nome da Mãe", value: payload.mae },
+      { label: "Celular/WhatsApp", value: payload.celular },
+      { label: "CEP", value: payload.cep },
+      { label: "Endereço", value: payload.endereco },
+      { label: "Número", value: payload.numero },
+      { label: "Bairro", value: payload.bairro },
+      { label: "UF", value: payload.estado },
+      { label: "Cidade", value: payload.cidade },
+      { label: "Matrícula", value: payload.matriculaOrgao },
+      { label: "Ente público", value: payload.codigoEmpresa }
+    ];
+
+    for (const field of requiredFields) {
+      if ((field.value ?? "").trim().length === 0) {
+        throw new BadRequestException(`O campo ${field.label} é obrigatório.`);
+      }
+    }
+
+    const hasFotoPerfil = typeof payload.fotoPerfilBase64 === "string" && payload.fotoPerfilBase64.trim().length > 0;
+    const hasComprovanteResidencia =
+      typeof payload.fotoResidenciaBase64 === "string" && payload.fotoResidenciaBase64.trim().length > 0;
+    const hasContracheque01 =
+      typeof payload.fotoContracheque01Base64 === "string" && payload.fotoContracheque01Base64.trim().length > 0;
+    const hasDocumentoFotoFrente =
+      typeof payload.fotoRgFrenteBase64 === "string" && payload.fotoRgFrenteBase64.trim().length > 0;
+    const hasDocumentoFotoVerso =
+      typeof payload.fotoRgVersoBase64 === "string" && payload.fotoRgVersoBase64.trim().length > 0;
+
+    if (!hasFotoPerfil || !hasComprovanteResidencia || !hasContracheque01 || !hasDocumentoFotoFrente || !hasDocumentoFotoVerso) {
+      throw new BadRequestException(
+        "Anexe os documentos obrigatórios: foto perfil, comprovante de residência, contracheque, RG frente e RG verso."
+      );
+    }
+
+    const protocolo = await this.generateUniqueProtocolo();
+
+    const photoPerfilBuffer = this.parseOptionalImage(payload.fotoPerfilBase64, "Foto perfil");
+    const comprovanteBuffer = this.parseOptionalImage(payload.fotoResidenciaBase64, "Comprovante de residência");
+    const contracheque01Buffer = this.parseOptionalImage(payload.fotoContracheque01Base64, "Contracheque 01");
+    const contracheque02Buffer = this.parseOptionalImage(payload.fotoContracheque02Base64, "Contracheque 02");
+    const fotoDocumentoBuffer = this.parseOptionalImage(payload.fotoDocumentoBase64, "Selfie com documento");
+    const rgFrenteBuffer = this.parseOptionalImage(payload.fotoRgFrenteBase64, "RG frente");
+    const rgVersoBuffer = this.parseOptionalImage(payload.fotoRgVersoBase64, "RG verso");
+
+    await this.legacyDatabaseService.query(
+      `
+      Insert Into AGG_FILIACAO
+        (
+          STATUS,
+          SITUACAO,
+          CPF,
+          NOME,
+          NOME_SOCIAL,
+          PAI,
+          MAE,
+          NATURALIDADE,
+          CEP,
+          ENDERECO,
+          NUMERO,
+          COMPLEMENTO,
+          BAIRRO,
+          CIDADE,
+          ESTADO,
+          TELEFONE,
+          CELULAR,
+          CELULARII,
+          DATANASCIMENTO,
+          EMAIL,
+          ESTADOCIVIL,
+          ESPECIFICAR_GENERO,
+          ORIENTACAO_SEXUAL,
+          SEXO,
+          RG,
+          DATA_REGISTRO,
+          FOTO,
+          FOTO_RESIDENCIA,
+          FOTO_CONTRACHEQUE01,
+          FOTO_CONTRACHEQUE02,
+          FOTO_DOCUMENTO,
+          FOTO_RG_FRENTE,
+          FOTO_RG_VERSO,
+          PROTOCOLO,
+          IP,
+          DATAEXPRG,
+          SANGUE_TP_RH,
+          RG_ORGAO,
+          RG_UF,
+          RACA,
+          MATRICULA_ORGAO,
+          REGIAO_ORGAO,
+          NIVELSALARIAL_ORGAO,
+          CARGAHORARIA_ORGAO,
+          SITUACAO_FUNCIONAL,
+          CARGO_ORGAO,
+          FUNCAO_ORGAO,
+          PROFISSAO_ORGAO,
+          VINCULO_ORGAO,
+          ADMISSAO_ORGAO,
+          APOSENTADORIA_ORGAO,
+          ADICIONAR_OUTRA_FILIACAO,
+          MATRICULA_ORGAOI,
+          REGIAO_ORGAOI,
+          NIVELSALARIAL_ORGAOI,
+          CARGAHORARIA_ORGAOI,
+          SITUACAO_ORGAOI,
+          CARGO_ORGAOI,
+          FUNCAO_ORGAOI,
+          PROFISSAO_ORGAOI,
+          VINCULO_ORGAOI,
+          ADMISSAO_ORGAOI,
+          APOSENTADORIA_ORGAOI,
+          AUTORIZAR_DESCONTO,
+          AUTORIZAR_LGPD,
+          TERMO_LGPD,
+          CODIGO_EMPRESA,
+          CODIGO_EMPRESAI,
+          CODIGO_PREDIO,
+          CODIGO_PREDIOI,
+          DESCONTAR_INSS,
+          DATA_DESCONTO_INSS,
+          NUMERO_BENEFICIO_INSS,
+          CODIGO_ESPECIE_INSS,
+          DESCONTAR_INSSI,
+          DATA_DESCONTO_INSSI,
+          CODIGO_ESPECIE_INSSI,
+          NUMERO_BENEFICIO_INSSI
+        )
+      Values
+        (
+          @STATUS,
+          @SITUACAO,
+          @CPF,
+          @NOME,
+          @NOME_SOCIAL,
+          @PAI,
+          @MAE,
+          @NATURALIDADE,
+          @CEP,
+          @ENDERECO,
+          @NUMERO,
+          @COMPLEMENTO,
+          @BAIRRO,
+          @CIDADE,
+          @ESTADO,
+          @TELEFONE,
+          @CELULAR,
+          @CELULARII,
+          @DATANASCIMENTO,
+          @EMAIL,
+          @ESTADOCIVIL,
+          @ESPECIFICAR_GENERO,
+          @ORIENTACAO_SEXUAL,
+          @SEXO,
+          @RG,
+          @DATA_REGISTRO,
+          @FOTO,
+          @FOTO_RESIDENCIA,
+          @FOTO_CONTRACHEQUE01,
+          @FOTO_CONTRACHEQUE02,
+          @FOTO_DOCUMENTO,
+          @FOTO_RG_FRENTE,
+          @FOTO_RG_VERSO,
+          @PROTOCOLO,
+          @IP,
+          @DATAEXPRG,
+          @SANGUE_TP_RH,
+          @RG_ORGAO,
+          @RG_UF,
+          @RACA,
+          @MATRICULA_ORGAO,
+          @REGIAO_ORGAO,
+          @NIVELSALARIAL_ORGAO,
+          @CARGAHORARIA_ORGAO,
+          @SITUACAO_FUNCIONAL,
+          @CARGO_ORGAO,
+          @FUNCAO_ORGAO,
+          @PROFISSAO_ORGAO,
+          @VINCULO_ORGAO,
+          @ADMISSAO_ORGAO,
+          @APOSENTADORIA_ORGAO,
+          @ADICIONAR_OUTRA_FILIACAO,
+          @MATRICULA_ORGAOI,
+          @REGIAO_ORGAOI,
+          @NIVELSALARIAL_ORGAOI,
+          @CARGAHORARIA_ORGAOI,
+          @SITUACAO_ORGAOI,
+          @CARGO_ORGAOI,
+          @FUNCAO_ORGAOI,
+          @PROFISSAO_ORGAOI,
+          @VINCULO_ORGAOI,
+          @ADMISSAO_ORGAOI,
+          @APOSENTADORIA_ORGAOI,
+          @AUTORIZAR_DESCONTO,
+          @AUTORIZAR_LGPD,
+          @TERMO_LGPD,
+          @CODIGO_EMPRESA,
+          @CODIGO_EMPRESAI,
+          @CODIGO_PREDIO,
+          @CODIGO_PREDIOI,
+          @DESCONTAR_INSS,
+          @DATA_DESCONTO_INSS,
+          @NUMERO_BENEFICIO_INSS,
+          @CODIGO_ESPECIE_INSS,
+          @DESCONTAR_INSSI,
+          @DATA_DESCONTO_INSSI,
+          @CODIGO_ESPECIE_INSSI,
+          @NUMERO_BENEFICIO_INSSI
+        )
+      `,
+      {
+        STATUS: "0",
+        SITUACAO: "1",
+        CPF: cpfDigits,
+        NOME: this.normalizeOptionalText(payload.nome),
+        NOME_SOCIAL: this.normalizeOptionalText(payload.nomeSocial),
+        PAI: this.normalizeOptionalText(payload.pai),
+        MAE: this.normalizeOptionalText(payload.mae),
+        NATURALIDADE: this.normalizeOptionalText(payload.naturalidade),
+        CEP: this.normalizeCep(payload.cep),
+        ENDERECO: this.normalizeOptionalText(payload.endereco),
+        NUMERO: this.normalizeOptionalText(payload.numero),
+        COMPLEMENTO: this.normalizeOptionalText(payload.complemento),
+        BAIRRO: this.normalizeOptionalText(payload.bairro),
+        CIDADE: this.normalizeOptionalText(payload.cidade),
+        ESTADO: this.normalizeOptionalText(payload.estado)?.toUpperCase() ?? null,
+        TELEFONE: this.sanitizePhone(payload.telefone),
+        CELULAR: this.sanitizePhone(payload.celular),
+        CELULARII: this.sanitizePhone(payload.celularIi),
+        DATANASCIMENTO: this.toDateValue(payload.dataNascimento),
+        EMAIL: emailBloqueado ?? this.normalizeOptionalText(payload.email)?.toLowerCase() ?? null,
+        ESTADOCIVIL: this.normalizeOptionalText(payload.estadoCivil),
+        ESPECIFICAR_GENERO: this.normalizeOptionalText(payload.especificarGenero),
+        ORIENTACAO_SEXUAL: this.normalizeOptionalText(payload.orientacaoSexual),
+        SEXO: this.normalizeOptionalText(payload.sexo),
+        RG: this.normalizeOptionalText(payload.rg),
+        DATA_REGISTRO: new Date(),
+        FOTO: photoPerfilBuffer,
+        FOTO_RESIDENCIA: comprovanteBuffer,
+        FOTO_CONTRACHEQUE01: contracheque01Buffer,
+        FOTO_CONTRACHEQUE02: contracheque02Buffer,
+        FOTO_DOCUMENTO: fotoDocumentoBuffer,
+        FOTO_RG_FRENTE: rgFrenteBuffer,
+        FOTO_RG_VERSO: rgVersoBuffer,
+        PROTOCOLO: protocolo,
+        IP: this.normalizeIpAddress(requestIp),
+        DATAEXPRG: this.toDateValue(payload.dataExpRg),
+        SANGUE_TP_RH: this.normalizeOptionalText(payload.sangueTpRh),
+        RG_ORGAO: this.normalizeOptionalText(payload.rgOrgao),
+        RG_UF: this.normalizeOptionalText(payload.rgUf)?.toUpperCase() ?? null,
+        RACA: this.normalizeOptionalText(payload.raca),
+        MATRICULA_ORGAO: this.normalizeOptionalText(payload.matriculaOrgao),
+        REGIAO_ORGAO: this.normalizeOptionalText(payload.estado)?.toUpperCase() ?? null,
+        NIVELSALARIAL_ORGAO: this.normalizeOptionalText(payload.nivelSalarialOrgao),
+        CARGAHORARIA_ORGAO: this.normalizeOptionalText(payload.cargaHorariaOrgao),
+        SITUACAO_FUNCIONAL: this.normalizeOptionalText(payload.situacaoFuncional),
+        CARGO_ORGAO: this.normalizeOptionalText(payload.cargoOrgao),
+        FUNCAO_ORGAO: this.normalizeOptionalText(payload.funcaoOrgao),
+        PROFISSAO_ORGAO: this.normalizeOptionalText(payload.profissaoOrgao),
+        VINCULO_ORGAO: this.normalizeOptionalText(payload.vinculoOrgao),
+        ADMISSAO_ORGAO: this.toDateValue(payload.admissaoOrgao),
+        APOSENTADORIA_ORGAO: this.toDateValue(payload.aposentadoriaOrgao),
+        ADICIONAR_OUTRA_FILIACAO: this.boolToLegacy(payload.adicionarOutraFiliacao),
+        MATRICULA_ORGAOI: this.normalizeOptionalText(payload.matriculaOrgaoI),
+        REGIAO_ORGAOI: this.normalizeOptionalText(payload.estado)?.toUpperCase() ?? null,
+        NIVELSALARIAL_ORGAOI: this.normalizeOptionalText(payload.nivelSalarialOrgaoI),
+        CARGAHORARIA_ORGAOI: this.normalizeOptionalText(payload.cargaHorariaOrgaoI),
+        SITUACAO_ORGAOI: this.normalizeOptionalText(payload.situacaoOrgaoI),
+        CARGO_ORGAOI: this.normalizeOptionalText(payload.cargoOrgaoI),
+        FUNCAO_ORGAOI: this.normalizeOptionalText(payload.funcaoOrgaoI),
+        PROFISSAO_ORGAOI: this.normalizeOptionalText(payload.profissaoOrgaoI),
+        VINCULO_ORGAOI: this.normalizeOptionalText(payload.vinculoOrgaoI),
+        ADMISSAO_ORGAOI: this.toDateValue(payload.admissaoOrgaoI),
+        APOSENTADORIA_ORGAOI: this.toDateValue(payload.aposentadoriaOrgaoI),
+        AUTORIZAR_DESCONTO: this.boolToLegacy(payload.autorizarDesconto),
+        AUTORIZAR_LGPD: this.boolToLegacy(payload.autorizarLgpd),
+        TERMO_LGPD: this.normalizeOptionalText(payload.termoLgpd),
+        CODIGO_EMPRESA: this.normalizeOptionalText(payload.codigoEmpresa),
+        CODIGO_EMPRESAI: this.normalizeOptionalText(payload.codigoEmpresaI),
+        CODIGO_PREDIO: this.normalizeOptionalText(payload.codigoPredio),
+        CODIGO_PREDIOI: this.normalizeOptionalText(payload.codigoPredioI),
+        DESCONTAR_INSS: payload.descontarInss ?? "N",
+        DATA_DESCONTO_INSS: this.toDateValue(payload.dataDescontoInss),
+        NUMERO_BENEFICIO_INSS: this.normalizeOptionalText(payload.numeroBeneficioInss),
+        CODIGO_ESPECIE_INSS: this.normalizeOptionalText(payload.codigoEspecieInss),
+        DESCONTAR_INSSI: payload.descontarInssI ?? "N",
+        DATA_DESCONTO_INSSI: this.toDateValue(payload.dataDescontoInssI),
+        CODIGO_ESPECIE_INSSI: this.normalizeOptionalText(payload.codigoEspecieInssI),
+        NUMERO_BENEFICIO_INSSI: this.normalizeOptionalText(payload.numeroBeneficioInssI)
+      }
+    );
+
+    return {
+      success: true,
+      protocolo,
+      message: "Solicitação de filiação enviada com sucesso."
     };
   }
 

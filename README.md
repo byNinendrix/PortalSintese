@@ -1,4 +1,4 @@
-﻿# Portal SINTESE - Migração do Legado Maker
+# Portal SINTESE - Migração do Legado Maker
 
 Base inicial do novo sistema SINTESE com arquitetura moderna, responsiva e escalável.
 

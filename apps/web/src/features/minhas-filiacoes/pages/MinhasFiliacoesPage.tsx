@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@sintese/ui";
 import { readAuthSession } from "../../auth/services/authSession";

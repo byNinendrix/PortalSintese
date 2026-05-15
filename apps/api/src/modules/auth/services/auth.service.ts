@@ -156,7 +156,7 @@ export class AuthService {
     `);
 
     if (rows.length === 0) {
-      throw new InternalServerErrorException("ConfiguraÃ§Ã£o de e-mail nÃ£o encontrada na tabela SINDICATO.");
+      throw new InternalServerErrorException("Configuração de e-mail não encontrada na tabela SINDICATO.");
     }
 
     return rows[0];
@@ -166,7 +166,7 @@ export class AuthService {
     const settings = await this.getSindicatoMailSettings();
 
     if (!settings.SMTP_SERVIDOR || !settings.SMTP_PORTA || !settings.EMAIL) {
-      throw new InternalServerErrorException("ConfiguraÃ§Ã£o SMTP incompleta na tabela SINDICATO.");
+      throw new InternalServerErrorException("Configuração SMTP incompleta na tabela SINDICATO.");
     }
 
     const port = Number(settings.SMTP_PORTA);
@@ -194,13 +194,13 @@ export class AuthService {
     const text = `Sr(a).: ${maskedCpf}
 Segue conforme solicitado sua nova senha de acesso ao portal do(a) filiado(a): ${payload.password}
 
-Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do seu acesso.`;
+Por favor, altere a senha assim que possível para garantir a segurança do seu acesso.`;
 
     const html = renderPortalEmailTemplate({
-      title: "RedefiniÃ§Ã£o de senha",
+      title: "Redefinição de senha",
       subtitle: "Nova senha de acesso",
       tone: "info",
-      identificationLabel: "IdentificaÃ§Ã£o",
+      identificationLabel: "Identificação",
       identificationValue: `CPF: ${maskedCpf}`,
       contentHtml: `
         <p style="margin:0 0 12px 0;">Sr(a).: <strong>${maskedCpf}</strong></p>
@@ -210,7 +210,7 @@ Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do 
             ${payload.password}
           </span>
         </p>
-        <p style="margin:0;">Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do seu acesso.</p>
+        <p style="margin:0;">Por favor, altere a senha assim que possível para garantir a segurança do seu acesso.</p>
       `,
       footerText: "Portal do Filiad@ | SINTESE"
     });
@@ -229,11 +229,11 @@ Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do 
     const password = payload.password?.trim();
 
     if (!cpfDigits) {
-      throw new BadRequestException("CPF Ã© obrigatÃ³rio.");
+      throw new BadRequestException("CPF é obrigatório.");
     }
 
     if (!password) {
-      throw new BadRequestException("Senha Ã© obrigatÃ³ria.");
+      throw new BadRequestException("Senha é obrigatória.");
     }
 
     const rows = await this.legacyDatabaseService.query<PessoaLoginRow>(
@@ -250,7 +250,7 @@ Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do 
     );
 
     if (rows.length === 0) {
-      throw new BadRequestException("CPF ou senha invÃ¡lidos.");
+      throw new BadRequestException("CPF ou senha inválidos.");
     }
 
     const storedPassword = rows[0].SENHA?.trim() ?? "";
@@ -296,7 +296,7 @@ Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do 
   async recoverPassword(payload: RecoverPasswordDto) {
     const cpfDigits = this.sanitizeCpf(payload.cpf);
     if (!cpfDigits) {
-      throw new BadRequestException("CPF Ã© obrigatÃ³rio.");
+      throw new BadRequestException("CPF é obrigatório.");
     }
 
     const rows = await this.legacyDatabaseService.query<PessoaLoginRow>(
@@ -314,7 +314,7 @@ Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do 
     );
 
     if (rows.length === 0) {
-      throw new BadRequestException("O CPF informado nÃ£o foi localizado em nosso sistema.");
+      throw new BadRequestException("O CPF informado não foi localizado em nosso sistema.");
     }
 
     const user = rows[0];
@@ -324,29 +324,29 @@ Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do 
     if (payload.preferredChannel === "email") {
       const email = this.normalizeEmail(payload.email);
       if (!email) {
-        throw new BadRequestException("E-mail Ã© obrigatÃ³rio.");
+        throw new BadRequestException("E-mail é obrigatório.");
       }
       if (!this.isEmailValid(email)) {
-        throw new BadRequestException("E-mail invÃ¡lido.");
+        throw new BadRequestException("E-mail inválido.");
       }
       if (!dbEmail) {
-        throw new BadRequestException("NÃ£o existe e-mail cadastrado para este CPF.");
+        throw new BadRequestException("Não existe e-mail cadastrado para este CPF.");
       }
       if (dbEmail !== email) {
-        throw new BadRequestException("O e-mail informado nÃ£o confere com o cadastro.");
+        throw new BadRequestException("O e-mail informado não confere com o cadastro.");
       }
     }
 
     if (payload.preferredChannel === "whatsapp") {
       const whatsapp = this.sanitizePhone(payload.whatsapp);
       if (!whatsapp) {
-        throw new BadRequestException("NÃºmero de WhatsApp Ã© obrigatÃ³rio.");
+        throw new BadRequestException("Número de WhatsApp é obrigatório.");
       }
       if (!dbWhatsapp) {
-        throw new BadRequestException("NÃ£o existe WhatsApp cadastrado para este CPF.");
+        throw new BadRequestException("Não existe WhatsApp cadastrado para este CPF.");
       }
       if (dbWhatsapp !== whatsapp) {
-        throw new BadRequestException("O nÃºmero de WhatsApp informado nÃ£o confere com o cadastro.");
+        throw new BadRequestException("O número de WhatsApp informado não confere com o cadastro.");
       }
     }
 
@@ -385,16 +385,16 @@ Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do 
     const newPassword = payload.newPassword?.trim() ?? "";
 
     if (!cpfDigits) {
-      throw new BadRequestException("CPF Ã© obrigatÃ³rio.");
+      throw new BadRequestException("CPF é obrigatório.");
     }
 
     if (!newPassword) {
-      throw new BadRequestException("Nova senha Ã© obrigatÃ³ria.");
+      throw new BadRequestException("Nova senha é obrigatória.");
     }
 
     if (!this.isPasswordComplex(newPassword)) {
       throw new BadRequestException(
-        "A senha deve ter no mÃ­nimo 6 caracteres, com pelo menos 1 letra maiÃºscula e 1 nÃºmero."
+        "A senha deve ter no mínimo 6 caracteres, com pelo menos 1 letra maiúscula e 1 número."
       );
     }
 
@@ -411,7 +411,7 @@ Por favor, altere a senha assim que possÃ­vel para garantir a seguranÃ§a do 
     );
 
     if (rows.length === 0) {
-      throw new BadRequestException("UsuÃ¡rio nÃ£o encontrado para redefiniÃ§Ã£o de senha.");
+      throw new BadRequestException("Usuário não encontrado para redefinição de senha.");
     }
 
     await this.legacyDatabaseService.query(

@@ -1,4 +1,4 @@
-﻿# ADR 0002 - Banco Legado SQL Server 2014 como Fonte Oficial Inicial
+# ADR 0002 - Banco Legado SQL Server 2014 como Fonte Oficial Inicial
 
 - Status: Aceito
 - Data: 2026-05-04

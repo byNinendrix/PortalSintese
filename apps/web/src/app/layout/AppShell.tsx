@@ -23,6 +23,7 @@ export function AppShell({ children }: AppShellProps) {
     pathname === "/login" ||
     pathname === "/menu-principal" ||
     pathname === "/consulta-regencia-classe" ||
+    pathname === "/solicitar-filiacao" ||
     pathname === "/protocolos" ||
     pathname === "/protocolo-relatorio" ||
     pathname === "/redefinir-senha" ||
