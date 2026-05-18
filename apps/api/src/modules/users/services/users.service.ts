@@ -342,6 +342,88 @@ interface SolicitacaoFiliacaoLoginRow {
   EMAIL?: string | null;
 }
 
+interface SolicitacaoFiliacaoDraftRow {
+  REGISTRO?: string | number | null;
+  STATUS?: string | null;
+  PROTOCOLO?: string | null;
+  NOME?: string | null;
+  NOME_SOCIAL?: string | null;
+  PAI?: string | null;
+  MAE?: string | null;
+  NATURALIDADE?: string | null;
+  CEP?: string | null;
+  ENDERECO?: string | null;
+  NUMERO?: string | null;
+  COMPLEMENTO?: string | null;
+  BAIRRO?: string | null;
+  CIDADE?: string | null;
+  ESTADO?: string | null;
+  TELEFONE?: string | null;
+  CELULAR?: string | null;
+  CELULARII?: string | null;
+  DATANASCIMENTO?: Date | string | null;
+  EMAIL?: string | null;
+  ESTADOCIVIL?: string | null;
+  ESPECIFICAR_GENERO?: string | null;
+  ORIENTACAO_SEXUAL?: string | null;
+  SEXO?: string | null;
+  RG?: string | null;
+  DATAEXPRG?: Date | string | null;
+  SANGUE_TP_RH?: string | null;
+  RG_ORGAO?: string | null;
+  RG_UF?: string | null;
+  RACA?: string | null;
+  MATRICULA_ORGAO?: string | null;
+  CODIGO_EMPRESA?: string | null;
+  CODIGO_PREDIO?: string | null;
+  SITUACAO_FUNCIONAL?: string | null;
+  NIVELSALARIAL_ORGAO?: string | null;
+  CARGO_ORGAO?: string | null;
+  PROFISSAO_ORGAO?: string | null;
+  FUNCAO_ORGAO?: string | null;
+  VINCULO_ORGAO?: string | null;
+  CARGAHORARIA_ORGAO?: string | null;
+  ADMISSAO_ORGAO?: Date | string | null;
+  APOSENTADORIA_ORGAO?: Date | string | null;
+  DESCONTAR_INSS?: string | number | null;
+  DATA_DESCONTO_INSS?: Date | string | null;
+  NUMERO_BENEFICIO_INSS?: string | null;
+  CODIGO_ESPECIE_INSS?: string | null;
+  ADICIONAR_OUTRA_FILIACAO?: string | number | boolean | null;
+  MATRICULA_ORGAOI?: string | null;
+  CODIGO_EMPRESAI?: string | null;
+  CODIGO_PREDIOI?: string | null;
+  SITUACAO_ORGAOI?: string | null;
+  NIVELSALARIAL_ORGAOI?: string | null;
+  CARGO_ORGAOI?: string | null;
+  PROFISSAO_ORGAOI?: string | null;
+  FUNCAO_ORGAOI?: string | null;
+  VINCULO_ORGAOI?: string | null;
+  CARGAHORARIA_ORGAOI?: string | null;
+  ADMISSAO_ORGAOI?: Date | string | null;
+  APOSENTADORIA_ORGAOI?: Date | string | null;
+  DESCONTAR_INSSI?: string | number | null;
+  DATA_DESCONTO_INSSI?: Date | string | null;
+  NUMERO_BENEFICIO_INSSI?: string | null;
+  CODIGO_ESPECIE_INSSI?: string | null;
+  AUTORIZAR_DESCONTO?: string | number | boolean | null;
+  AUTORIZAR_LGPD?: string | number | boolean | null;
+  TERMO_LGPD?: string | null;
+  FOTO?: Buffer | string | null;
+  FOTO_RESIDENCIA?: Buffer | string | null;
+  FOTO_CONTRACHEQUE01?: Buffer | string | null;
+  FOTO_CONTRACHEQUE02?: Buffer | string | null;
+  FOTO_DOCUMENTO?: Buffer | string | null;
+  FOTO_RG_FRENTE?: Buffer | string | null;
+  FOTO_RG_VERSO?: Buffer | string | null;
+}
+
+interface SolicitacaoFiliacaoTermosRow {
+  TEXTO_AUTORIZACAO_DESCONTO?: string | null;
+  TERMO_LGPD?: string | null;
+  DATAEXTENSO?: string | null;
+}
+
 interface ProtocoloExistsRow {
   PROTOCOLO?: string | null;
 }
@@ -800,6 +882,23 @@ export class UsersService {
     return value ? 1 : 0;
   }
 
+  private toInssOption(value: string | number | boolean | null | undefined): "S" | "N" | "" {
+    const normalized = this.normalizeScalar(value)?.toUpperCase() ?? "";
+    if (!normalized) {
+      return "";
+    }
+
+    if (normalized === "S" || normalized === "1" || normalized === "SIM" || normalized === "TRUE") {
+      return "S";
+    }
+
+    if (normalized === "N" || normalized === "0" || normalized === "NAO" || normalized === "NÃO" || normalized === "FALSE") {
+      return "N";
+    }
+
+    return "";
+  }
+
   private normalizeIpAddress(ipValue?: string | null): string | null {
     const raw = (ipValue ?? "").trim();
     if (!raw) {
@@ -1252,39 +1351,237 @@ Por segurança, altere essa senha no primeiro acesso.`;
       { CPF: cpfDigits }
     );
 
+    const draftRows = await this.legacyDatabaseService.query<SolicitacaoFiliacaoDraftRow>(
+      `
+      Select Top 1
+        AGG_FILIACAO.REGISTRO,
+        AGG_FILIACAO.STATUS,
+        AGG_FILIACAO.PROTOCOLO,
+        AGG_FILIACAO.NOME,
+        AGG_FILIACAO.NOME_SOCIAL,
+        AGG_FILIACAO.PAI,
+        AGG_FILIACAO.MAE,
+        AGG_FILIACAO.NATURALIDADE,
+        AGG_FILIACAO.CEP,
+        AGG_FILIACAO.ENDERECO,
+        AGG_FILIACAO.NUMERO,
+        AGG_FILIACAO.COMPLEMENTO,
+        AGG_FILIACAO.BAIRRO,
+        AGG_FILIACAO.CIDADE,
+        AGG_FILIACAO.ESTADO,
+        AGG_FILIACAO.TELEFONE,
+        AGG_FILIACAO.CELULAR,
+        AGG_FILIACAO.CELULARII,
+        AGG_FILIACAO.DATANASCIMENTO,
+        AGG_FILIACAO.EMAIL,
+        AGG_FILIACAO.ESTADOCIVIL,
+        AGG_FILIACAO.ESPECIFICAR_GENERO,
+        AGG_FILIACAO.ORIENTACAO_SEXUAL,
+        AGG_FILIACAO.SEXO,
+        AGG_FILIACAO.RG,
+        AGG_FILIACAO.DATAEXPRG,
+        AGG_FILIACAO.SANGUE_TP_RH,
+        AGG_FILIACAO.RG_ORGAO,
+        AGG_FILIACAO.RG_UF,
+        AGG_FILIACAO.RACA,
+        AGG_FILIACAO.MATRICULA_ORGAO,
+        AGG_FILIACAO.CODIGO_EMPRESA,
+        AGG_FILIACAO.CODIGO_PREDIO,
+        AGG_FILIACAO.SITUACAO_FUNCIONAL,
+        AGG_FILIACAO.NIVELSALARIAL_ORGAO,
+        AGG_FILIACAO.CARGO_ORGAO,
+        AGG_FILIACAO.PROFISSAO_ORGAO,
+        AGG_FILIACAO.FUNCAO_ORGAO,
+        AGG_FILIACAO.VINCULO_ORGAO,
+        AGG_FILIACAO.CARGAHORARIA_ORGAO,
+        AGG_FILIACAO.ADMISSAO_ORGAO,
+        AGG_FILIACAO.APOSENTADORIA_ORGAO,
+        AGG_FILIACAO.DESCONTAR_INSS,
+        AGG_FILIACAO.DATA_DESCONTO_INSS,
+        AGG_FILIACAO.NUMERO_BENEFICIO_INSS,
+        AGG_FILIACAO.CODIGO_ESPECIE_INSS,
+        AGG_FILIACAO.ADICIONAR_OUTRA_FILIACAO,
+        AGG_FILIACAO.MATRICULA_ORGAOI,
+        AGG_FILIACAO.CODIGO_EMPRESAI,
+        AGG_FILIACAO.CODIGO_PREDIOI,
+        AGG_FILIACAO.SITUACAO_ORGAOI,
+        AGG_FILIACAO.NIVELSALARIAL_ORGAOI,
+        AGG_FILIACAO.CARGO_ORGAOI,
+        AGG_FILIACAO.PROFISSAO_ORGAOI,
+        AGG_FILIACAO.FUNCAO_ORGAOI,
+        AGG_FILIACAO.VINCULO_ORGAOI,
+        AGG_FILIACAO.CARGAHORARIA_ORGAOI,
+        AGG_FILIACAO.ADMISSAO_ORGAOI,
+        AGG_FILIACAO.APOSENTADORIA_ORGAOI,
+        AGG_FILIACAO.DESCONTAR_INSSI,
+        AGG_FILIACAO.DATA_DESCONTO_INSSI,
+        AGG_FILIACAO.NUMERO_BENEFICIO_INSSI,
+        AGG_FILIACAO.CODIGO_ESPECIE_INSSI,
+        AGG_FILIACAO.AUTORIZAR_DESCONTO,
+        AGG_FILIACAO.AUTORIZAR_LGPD,
+        AGG_FILIACAO.TERMO_LGPD,
+        AGG_FILIACAO.FOTO,
+        AGG_FILIACAO.FOTO_RESIDENCIA,
+        AGG_FILIACAO.FOTO_CONTRACHEQUE01,
+        AGG_FILIACAO.FOTO_CONTRACHEQUE02,
+        AGG_FILIACAO.FOTO_DOCUMENTO,
+        AGG_FILIACAO.FOTO_RG_FRENTE,
+        AGG_FILIACAO.FOTO_RG_VERSO
+      From
+        AGG_FILIACAO
+      Where
+        AGG_FILIACAO.CPF = @CPF
+        And AGG_FILIACAO.STATUS In ('A', 'F')
+      Order By
+        AGG_FILIACAO.REGISTRO Desc
+      `,
+      { CPF: cpfDigits }
+    );
+
+    const sindicatoRows = await this.legacyDatabaseService.query<SolicitacaoFiliacaoTermosRow>(
+      `
+      Select Top 1
+        SINDICATO.TEXTO_AUTORIZACAO_DESCONTO,
+        SINDICATO.TERMO_LGPD,
+        DBO.udf_TitleCase(SINDICATO.CIDADE) + '/' + SINDICATO.UF + ', ' + dbo.DataExtenso(GetDate()) As DATAEXTENSO
+      From
+        SINDICATO
+      `
+    );
+
     const pessoa = pessoaRows[0];
-    const estadoCivilResolved = await this.resolveEstadoCivil(cpfDigits, pessoa?.ESTADOCIVIL);
+    const draft = draftRows[0];
+    const sindicato = sindicatoRows[0];
+    const normalizedStatus = this.normalizeScalar(draft?.STATUS)?.toUpperCase() ?? "";
+    const hasDraftInProgress = normalizedStatus === "A";
+    const shouldResetForNewRequest = normalizedStatus === "F";
+    const estadoCivilResolved = await this.resolveEstadoCivil(
+      cpfDigits,
+      hasDraftInProgress ? draft?.ESTADOCIVIL : pessoa?.ESTADOCIVIL
+    );
+
+    const pickText = (
+      draftValue: string | number | boolean | Date | Buffer | null | undefined,
+      pessoaValue?: string | number | boolean | Date | Buffer | null | undefined
+    ): string => {
+      if (shouldResetForNewRequest) {
+        return "";
+      }
+      if (hasDraftInProgress) {
+        return this.normalizeScalar(draftValue) ?? "";
+      }
+      return this.normalizeScalar(pessoaValue) ?? "";
+    };
+
+    const pickDate = (draftValue: Date | string | null | undefined, pessoaValue?: Date | string | null): string | null => {
+      if (shouldResetForNewRequest) {
+        return null;
+      }
+      if (hasDraftInProgress) {
+        return this.toDateIso(draftValue);
+      }
+      return this.toDateIso(pessoaValue ?? null);
+    };
+
+    const pickPhoto = (draftValue: Buffer | string | null | undefined, pessoaValue?: Buffer | string | null): string | null => {
+      if (shouldResetForNewRequest) {
+        return null;
+      }
+      if (hasDraftInProgress) {
+        return this.toFotoDataUrl(draftValue);
+      }
+      return this.toFotoDataUrl(pessoaValue ?? null);
+    };
 
     return {
       cpf: this.maskCpf(cpfDigits),
-      nome: pessoa?.NOME?.trim() ?? "",
-      nomeSocial: pessoa?.NOME_SOCIAL?.trim() ?? "",
-      pai: pessoa?.PAI?.trim() ?? "",
-      mae: pessoa?.MAE?.trim() ?? "",
-      naturalidade: pessoa?.NATURALIDADE?.trim() ?? "",
-      cep: this.normalizeCep(pessoa?.CEP ?? undefined) ?? "",
-      endereco: pessoa?.ENDERECO?.trim() ?? "",
-      numero: pessoa?.NUMERO?.trim() ?? "",
-      complemento: pessoa?.COMPLEMENTO?.trim() ?? "",
-      bairro: pessoa?.BAIRRO?.trim() ?? "",
-      cidade: pessoa?.CIDADE?.trim() ?? "",
-      estado: pessoa?.ESTADO?.trim().toUpperCase() ?? "",
-      telefone: pessoa?.TELEFONE?.trim() ?? "",
-      celular: pessoa?.CELULAR?.trim() ?? "",
-      celularIi: pessoa?.CELULARII?.trim() ?? "",
-      dataNascimento: this.toDateIso(pessoa?.DATANASCIMENTO),
-      email: loginRows[0]?.EMAIL?.trim().toLowerCase() ?? "",
+      solicitacaoStatus: hasDraftInProgress ? "A" : shouldResetForNewRequest ? "F" : null,
+      hasDraftInProgress,
+      nome: pickText(draft?.NOME, pessoa?.NOME),
+      nomeSocial: pickText(draft?.NOME_SOCIAL, pessoa?.NOME_SOCIAL),
+      pai: pickText(draft?.PAI, pessoa?.PAI),
+      mae: pickText(draft?.MAE, pessoa?.MAE),
+      naturalidade: pickText(draft?.NATURALIDADE, pessoa?.NATURALIDADE),
+      cep: shouldResetForNewRequest
+        ? ""
+        : hasDraftInProgress
+          ? this.normalizeCep(draft?.CEP ?? undefined) ?? ""
+          : this.normalizeCep(pessoa?.CEP ?? undefined) ?? "",
+      endereco: pickText(draft?.ENDERECO, pessoa?.ENDERECO),
+      numero: pickText(draft?.NUMERO, pessoa?.NUMERO),
+      complemento: pickText(draft?.COMPLEMENTO, pessoa?.COMPLEMENTO),
+      bairro: pickText(draft?.BAIRRO, pessoa?.BAIRRO),
+      cidade: pickText(draft?.CIDADE, pessoa?.CIDADE),
+      estado: shouldResetForNewRequest
+        ? ""
+        : hasDraftInProgress
+          ? this.normalizeScalar(draft?.ESTADO)?.toUpperCase() ?? ""
+          : this.normalizeScalar(pessoa?.ESTADO)?.toUpperCase() ?? "",
+      telefone: pickText(draft?.TELEFONE, pessoa?.TELEFONE),
+      celular: pickText(draft?.CELULAR, pessoa?.CELULAR),
+      celularIi: pickText(draft?.CELULARII, pessoa?.CELULARII),
+      dataNascimento: pickDate(draft?.DATANASCIMENTO, pessoa?.DATANASCIMENTO),
+      email: shouldResetForNewRequest
+        ? ""
+        : hasDraftInProgress
+          ? this.normalizeScalar(draft?.EMAIL)?.toLowerCase() ?? ""
+          : this.normalizeScalar(loginRows[0]?.EMAIL)?.toLowerCase() ?? "",
       estadoCivil: estadoCivilResolved,
-      especificarGenero: pessoa?.ESPECIFICAR_GENERO?.trim() ?? "",
-      orientacaoSexual: pessoa?.ORIENTACAO_SEXUAL?.trim() ?? "",
-      sexo: pessoa?.SEXO?.trim() ?? "",
-      rg: pessoa?.RG?.trim() ?? "",
-      dataExpRg: this.toDateIso(pessoa?.DATAEXPRG),
-      sangueTpRh: pessoa?.SANGUE_TP_RH?.trim() ?? "",
-      rgOrgao: pessoa?.RG_ORGAO?.trim() ?? "",
-      rgUf: pessoa?.RG_UF?.trim() ?? "",
-      raca: pessoa?.RACA?.trim() ?? "",
-      fotoPerfilUrl: this.toFotoDataUrl(pessoa?.FOTO_IMG),
+      especificarGenero: pickText(draft?.ESPECIFICAR_GENERO, pessoa?.ESPECIFICAR_GENERO),
+      orientacaoSexual: pickText(draft?.ORIENTACAO_SEXUAL, pessoa?.ORIENTACAO_SEXUAL),
+      sexo: pickText(draft?.SEXO, pessoa?.SEXO),
+      rg: pickText(draft?.RG, pessoa?.RG),
+      dataExpRg: pickDate(draft?.DATAEXPRG, pessoa?.DATAEXPRG),
+      sangueTpRh: pickText(draft?.SANGUE_TP_RH, pessoa?.SANGUE_TP_RH),
+      rgOrgao: pickText(draft?.RG_ORGAO, pessoa?.RG_ORGAO),
+      rgUf: pickText(draft?.RG_UF, pessoa?.RG_UF),
+      raca: pickText(draft?.RACA, pessoa?.RACA),
+      matriculaOrgao: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.MATRICULA_ORGAO) ?? "",
+      codigoEmpresa: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CODIGO_EMPRESA) ?? "",
+      codigoPredio: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CODIGO_PREDIO) ?? "",
+      situacaoFuncional: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.SITUACAO_FUNCIONAL) ?? "",
+      nivelSalarialOrgao: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.NIVELSALARIAL_ORGAO) ?? "",
+      cargoOrgao: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CARGO_ORGAO) ?? "",
+      profissaoOrgao: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.PROFISSAO_ORGAO) ?? "",
+      funcaoOrgao: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.FUNCAO_ORGAO) ?? "",
+      vinculoOrgao: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.VINCULO_ORGAO) ?? "",
+      cargaHorariaOrgao: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CARGAHORARIA_ORGAO) ?? "",
+      admissaoOrgao: shouldResetForNewRequest ? null : this.toDateIso(draft?.ADMISSAO_ORGAO),
+      aposentadoriaOrgao: shouldResetForNewRequest ? null : this.toDateIso(draft?.APOSENTADORIA_ORGAO),
+      descontarInss: shouldResetForNewRequest ? "" : this.toInssOption(draft?.DESCONTAR_INSS),
+      dataDescontoInss: shouldResetForNewRequest ? null : this.toDateIso(draft?.DATA_DESCONTO_INSS),
+      numeroBeneficioInss: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.NUMERO_BENEFICIO_INSS) ?? "",
+      codigoEspecieInss: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CODIGO_ESPECIE_INSS) ?? "",
+      adicionarOutraFiliacao: shouldResetForNewRequest ? false : this.isFlagEnabled(draft?.ADICIONAR_OUTRA_FILIACAO),
+      matriculaOrgaoI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.MATRICULA_ORGAOI) ?? "",
+      codigoEmpresaI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CODIGO_EMPRESAI) ?? "",
+      codigoPredioI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CODIGO_PREDIOI) ?? "",
+      situacaoOrgaoI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.SITUACAO_ORGAOI) ?? "",
+      nivelSalarialOrgaoI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.NIVELSALARIAL_ORGAOI) ?? "",
+      cargoOrgaoI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CARGO_ORGAOI) ?? "",
+      profissaoOrgaoI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.PROFISSAO_ORGAOI) ?? "",
+      funcaoOrgaoI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.FUNCAO_ORGAOI) ?? "",
+      vinculoOrgaoI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.VINCULO_ORGAOI) ?? "",
+      cargaHorariaOrgaoI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CARGAHORARIA_ORGAOI) ?? "",
+      admissaoOrgaoI: shouldResetForNewRequest ? null : this.toDateIso(draft?.ADMISSAO_ORGAOI),
+      aposentadoriaOrgaoI: shouldResetForNewRequest ? null : this.toDateIso(draft?.APOSENTADORIA_ORGAOI),
+      descontarInssI: shouldResetForNewRequest ? "" : this.toInssOption(draft?.DESCONTAR_INSSI),
+      dataDescontoInssI: shouldResetForNewRequest ? null : this.toDateIso(draft?.DATA_DESCONTO_INSSI),
+      numeroBeneficioInssI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.NUMERO_BENEFICIO_INSSI) ?? "",
+      codigoEspecieInssI: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.CODIGO_ESPECIE_INSSI) ?? "",
+      autorizarDesconto: shouldResetForNewRequest ? false : hasDraftInProgress ? this.isFlagEnabled(draft?.AUTORIZAR_DESCONTO) : true,
+      autorizarLgpd: shouldResetForNewRequest ? false : hasDraftInProgress ? this.isFlagEnabled(draft?.AUTORIZAR_LGPD) : true,
+      termoLgpdConfirmacao: shouldResetForNewRequest ? "" : this.normalizeScalar(draft?.TERMO_LGPD) ?? "",
+      termoAutorizacaoDesconto: this.normalizeScalar(sindicato?.TEXTO_AUTORIZACAO_DESCONTO) ?? "",
+      termoLgpdTexto: this.normalizeScalar(sindicato?.TERMO_LGPD) ?? "",
+      termoLgpdDataExtenso: this.normalizeScalar(sindicato?.DATAEXTENSO) ?? "",
+      fotoPerfilUrl: pickPhoto(draft?.FOTO, pessoa?.FOTO_IMG),
+      fotoResidenciaUrl: shouldResetForNewRequest ? null : this.toFotoDataUrl(draft?.FOTO_RESIDENCIA),
+      fotoContracheque01Url: shouldResetForNewRequest ? null : this.toFotoDataUrl(draft?.FOTO_CONTRACHEQUE01),
+      fotoContracheque02Url: shouldResetForNewRequest ? null : this.toFotoDataUrl(draft?.FOTO_CONTRACHEQUE02),
+      fotoDocumentoUrl: shouldResetForNewRequest ? null : this.toFotoDataUrl(draft?.FOTO_DOCUMENTO),
+      fotoRgFrenteUrl: shouldResetForNewRequest ? null : this.toFotoDataUrl(draft?.FOTO_RG_FRENTE),
+      fotoRgVersoUrl: shouldResetForNewRequest ? null : this.toFotoDataUrl(draft?.FOTO_RG_VERSO),
       fatoresSanguineos: this.getLookupFatoresSanguineos()
     };
   }
@@ -1309,6 +1606,9 @@ Por segurança, altere essa senha no primeiro acesso.`;
           SITUACAO_FILIADO.DESCRICAO
         From
           SITUACAO_FILIADO
+        Where (
+          (SITUACAO_FILIADO.WEB = 1) And
+          (SITUACAO_FILIADO.ATIVO = 1))
         Order By
           SITUACAO_FILIADO.DESCRICAO
         `
@@ -1372,11 +1672,9 @@ Por segurança, altere essa senha no primeiro acesso.`;
         `
         Select
           CAD_ESPECIE_INSS.CODIGO,
-          CAD_ESPECIE_INSS.DESCRICAO
+          CAD_ESPECIE_INSS.CODIGO + ' - ' + CAD_ESPECIE_INSS.DESCRICAO As DESCRICAO
         From
           CAD_ESPECIE_INSS
-        Order By
-          CAD_ESPECIE_INSS.DESCRICAO
         `
       )
     ]);
@@ -1454,14 +1752,22 @@ Por segurança, altere essa senha no primeiro acesso.`;
       { label: "Bairro", value: payload.bairro },
       { label: "UF", value: payload.estado },
       { label: "Cidade", value: payload.cidade },
-      { label: "Matrícula", value: payload.matriculaOrgao },
-      { label: "Ente público", value: payload.codigoEmpresa }
+      { label: "Matricula", value: payload.matriculaOrgao },
+      { label: "Ente publico", value: payload.codigoEmpresa }
     ];
 
     for (const field of requiredFields) {
       if ((field.value ?? "").trim().length === 0) {
-        throw new BadRequestException(`O campo ${field.label} é obrigatório.`);
+        throw new BadRequestException(`O campo ${field.label} e obrigatorio.`);
       }
+    }
+
+    if (!payload.autorizarDesconto) {
+      throw new BadRequestException("E obrigatorio concordar com o termo de autorizacao do desconto sindical.");
+    }
+
+    if (!payload.autorizarLgpd) {
+      throw new BadRequestException("E obrigatorio concordar com os termos da L.G.P.D.");
     }
 
     const hasFotoPerfil = typeof payload.fotoPerfilBase64 === "string" && payload.fotoPerfilBase64.trim().length > 0;
@@ -1476,266 +1782,379 @@ Por segurança, altere essa senha no primeiro acesso.`;
 
     if (!hasFotoPerfil || !hasComprovanteResidencia || !hasContracheque01 || !hasDocumentoFotoFrente || !hasDocumentoFotoVerso) {
       throw new BadRequestException(
-        "Anexe os documentos obrigatórios: foto perfil, comprovante de residência, contracheque, RG frente e RG verso."
+        "Anexe os documentos obrigatorios: foto perfil, comprovante de residencia, contracheque, RG frente e RG verso."
       );
     }
 
-    const protocolo = await this.generateUniqueProtocolo();
+    const openDraftRows = await this.legacyDatabaseService.query<SolicitacaoFiliacaoDraftRow>(
+      `
+      Select Top 1
+        AGG_FILIACAO.REGISTRO,
+        AGG_FILIACAO.PROTOCOLO
+      From
+        AGG_FILIACAO
+      Where
+        AGG_FILIACAO.CPF = @CPF
+        And AGG_FILIACAO.STATUS = 'A'
+      Order By
+        AGG_FILIACAO.REGISTRO Desc
+      `,
+      { CPF: cpfDigits }
+    );
+
+    const openDraft = openDraftRows[0];
+    const draftRegistro = this.normalizeScalar(openDraft?.REGISTRO);
+    const protocolo = this.normalizeScalar(openDraft?.PROTOCOLO) ?? (await this.generateUniqueProtocolo());
 
     const photoPerfilBuffer = this.parseOptionalImage(payload.fotoPerfilBase64, "Foto perfil");
-    const comprovanteBuffer = this.parseOptionalImage(payload.fotoResidenciaBase64, "Comprovante de residência");
+    const comprovanteBuffer = this.parseOptionalImage(payload.fotoResidenciaBase64, "Comprovante de residencia");
     const contracheque01Buffer = this.parseOptionalImage(payload.fotoContracheque01Base64, "Contracheque 01");
     const contracheque02Buffer = this.parseOptionalImage(payload.fotoContracheque02Base64, "Contracheque 02");
     const fotoDocumentoBuffer = this.parseOptionalImage(payload.fotoDocumentoBase64, "Selfie com documento");
     const rgFrenteBuffer = this.parseOptionalImage(payload.fotoRgFrenteBase64, "RG frente");
     const rgVersoBuffer = this.parseOptionalImage(payload.fotoRgVersoBase64, "RG verso");
 
-    await this.legacyDatabaseService.query(
-      `
-      Insert Into AGG_FILIACAO
-        (
-          STATUS,
-          SITUACAO,
-          CPF,
-          NOME,
-          NOME_SOCIAL,
-          PAI,
-          MAE,
-          NATURALIDADE,
-          CEP,
-          ENDERECO,
-          NUMERO,
-          COMPLEMENTO,
-          BAIRRO,
-          CIDADE,
-          ESTADO,
-          TELEFONE,
-          CELULAR,
-          CELULARII,
-          DATANASCIMENTO,
-          EMAIL,
-          ESTADOCIVIL,
-          ESPECIFICAR_GENERO,
-          ORIENTACAO_SEXUAL,
-          SEXO,
-          RG,
-          DATA_REGISTRO,
-          FOTO,
-          FOTO_RESIDENCIA,
-          FOTO_CONTRACHEQUE01,
-          FOTO_CONTRACHEQUE02,
-          FOTO_DOCUMENTO,
-          FOTO_RG_FRENTE,
-          FOTO_RG_VERSO,
-          PROTOCOLO,
-          IP,
-          DATAEXPRG,
-          SANGUE_TP_RH,
-          RG_ORGAO,
-          RG_UF,
-          RACA,
-          MATRICULA_ORGAO,
-          REGIAO_ORGAO,
-          NIVELSALARIAL_ORGAO,
-          CARGAHORARIA_ORGAO,
-          SITUACAO_FUNCIONAL,
-          CARGO_ORGAO,
-          FUNCAO_ORGAO,
-          PROFISSAO_ORGAO,
-          VINCULO_ORGAO,
-          ADMISSAO_ORGAO,
-          APOSENTADORIA_ORGAO,
-          ADICIONAR_OUTRA_FILIACAO,
-          MATRICULA_ORGAOI,
-          REGIAO_ORGAOI,
-          NIVELSALARIAL_ORGAOI,
-          CARGAHORARIA_ORGAOI,
-          SITUACAO_ORGAOI,
-          CARGO_ORGAOI,
-          FUNCAO_ORGAOI,
-          PROFISSAO_ORGAOI,
-          VINCULO_ORGAOI,
-          ADMISSAO_ORGAOI,
-          APOSENTADORIA_ORGAOI,
-          AUTORIZAR_DESCONTO,
-          AUTORIZAR_LGPD,
-          TERMO_LGPD,
-          CODIGO_EMPRESA,
-          CODIGO_EMPRESAI,
-          CODIGO_PREDIO,
-          CODIGO_PREDIOI,
-          DESCONTAR_INSS,
-          DATA_DESCONTO_INSS,
-          NUMERO_BENEFICIO_INSS,
-          CODIGO_ESPECIE_INSS,
-          DESCONTAR_INSSI,
-          DATA_DESCONTO_INSSI,
-          CODIGO_ESPECIE_INSSI,
-          NUMERO_BENEFICIO_INSSI
-        )
-      Values
-        (
-          @STATUS,
-          @SITUACAO,
-          @CPF,
-          @NOME,
-          @NOME_SOCIAL,
-          @PAI,
-          @MAE,
-          @NATURALIDADE,
-          @CEP,
-          @ENDERECO,
-          @NUMERO,
-          @COMPLEMENTO,
-          @BAIRRO,
-          @CIDADE,
-          @ESTADO,
-          @TELEFONE,
-          @CELULAR,
-          @CELULARII,
-          @DATANASCIMENTO,
-          @EMAIL,
-          @ESTADOCIVIL,
-          @ESPECIFICAR_GENERO,
-          @ORIENTACAO_SEXUAL,
-          @SEXO,
-          @RG,
-          @DATA_REGISTRO,
-          @FOTO,
-          @FOTO_RESIDENCIA,
-          @FOTO_CONTRACHEQUE01,
-          @FOTO_CONTRACHEQUE02,
-          @FOTO_DOCUMENTO,
-          @FOTO_RG_FRENTE,
-          @FOTO_RG_VERSO,
-          @PROTOCOLO,
-          @IP,
-          @DATAEXPRG,
-          @SANGUE_TP_RH,
-          @RG_ORGAO,
-          @RG_UF,
-          @RACA,
-          @MATRICULA_ORGAO,
-          @REGIAO_ORGAO,
-          @NIVELSALARIAL_ORGAO,
-          @CARGAHORARIA_ORGAO,
-          @SITUACAO_FUNCIONAL,
-          @CARGO_ORGAO,
-          @FUNCAO_ORGAO,
-          @PROFISSAO_ORGAO,
-          @VINCULO_ORGAO,
-          @ADMISSAO_ORGAO,
-          @APOSENTADORIA_ORGAO,
-          @ADICIONAR_OUTRA_FILIACAO,
-          @MATRICULA_ORGAOI,
-          @REGIAO_ORGAOI,
-          @NIVELSALARIAL_ORGAOI,
-          @CARGAHORARIA_ORGAOI,
-          @SITUACAO_ORGAOI,
-          @CARGO_ORGAOI,
-          @FUNCAO_ORGAOI,
-          @PROFISSAO_ORGAOI,
-          @VINCULO_ORGAOI,
-          @ADMISSAO_ORGAOI,
-          @APOSENTADORIA_ORGAOI,
-          @AUTORIZAR_DESCONTO,
-          @AUTORIZAR_LGPD,
-          @TERMO_LGPD,
-          @CODIGO_EMPRESA,
-          @CODIGO_EMPRESAI,
-          @CODIGO_PREDIO,
-          @CODIGO_PREDIOI,
-          @DESCONTAR_INSS,
-          @DATA_DESCONTO_INSS,
-          @NUMERO_BENEFICIO_INSS,
-          @CODIGO_ESPECIE_INSS,
-          @DESCONTAR_INSSI,
-          @DATA_DESCONTO_INSSI,
-          @CODIGO_ESPECIE_INSSI,
-          @NUMERO_BENEFICIO_INSSI
-        )
-      `,
-      {
-        STATUS: "0",
-        SITUACAO: "1",
-        CPF: cpfDigits,
-        NOME: this.normalizeOptionalText(payload.nome),
-        NOME_SOCIAL: this.normalizeOptionalText(payload.nomeSocial),
-        PAI: this.normalizeOptionalText(payload.pai),
-        MAE: this.normalizeOptionalText(payload.mae),
-        NATURALIDADE: this.normalizeOptionalText(payload.naturalidade),
-        CEP: this.normalizeCep(payload.cep),
-        ENDERECO: this.normalizeOptionalText(payload.endereco),
-        NUMERO: this.normalizeOptionalText(payload.numero),
-        COMPLEMENTO: this.normalizeOptionalText(payload.complemento),
-        BAIRRO: this.normalizeOptionalText(payload.bairro),
-        CIDADE: this.normalizeOptionalText(payload.cidade),
-        ESTADO: this.normalizeOptionalText(payload.estado)?.toUpperCase() ?? null,
-        TELEFONE: this.sanitizePhone(payload.telefone),
-        CELULAR: this.sanitizePhone(payload.celular),
-        CELULARII: this.sanitizePhone(payload.celularIi),
-        DATANASCIMENTO: this.toDateValue(payload.dataNascimento),
-        EMAIL: emailBloqueado ?? this.normalizeOptionalText(payload.email)?.toLowerCase() ?? null,
-        ESTADOCIVIL: this.normalizeOptionalText(payload.estadoCivil),
-        ESPECIFICAR_GENERO: this.normalizeOptionalText(payload.especificarGenero),
-        ORIENTACAO_SEXUAL: this.normalizeOptionalText(payload.orientacaoSexual),
-        SEXO: this.normalizeOptionalText(payload.sexo),
-        RG: this.normalizeOptionalText(payload.rg),
-        DATA_REGISTRO: new Date(),
-        FOTO: photoPerfilBuffer,
-        FOTO_RESIDENCIA: comprovanteBuffer,
-        FOTO_CONTRACHEQUE01: contracheque01Buffer,
-        FOTO_CONTRACHEQUE02: contracheque02Buffer,
-        FOTO_DOCUMENTO: fotoDocumentoBuffer,
-        FOTO_RG_FRENTE: rgFrenteBuffer,
-        FOTO_RG_VERSO: rgVersoBuffer,
-        PROTOCOLO: protocolo,
-        IP: this.normalizeIpAddress(requestIp),
-        DATAEXPRG: this.toDateValue(payload.dataExpRg),
-        SANGUE_TP_RH: this.normalizeOptionalText(payload.sangueTpRh),
-        RG_ORGAO: this.normalizeOptionalText(payload.rgOrgao),
-        RG_UF: this.normalizeOptionalText(payload.rgUf)?.toUpperCase() ?? null,
-        RACA: this.normalizeOptionalText(payload.raca),
-        MATRICULA_ORGAO: this.normalizeOptionalText(payload.matriculaOrgao),
-        REGIAO_ORGAO: this.normalizeOptionalText(payload.estado)?.toUpperCase() ?? null,
-        NIVELSALARIAL_ORGAO: this.normalizeOptionalText(payload.nivelSalarialOrgao),
-        CARGAHORARIA_ORGAO: this.normalizeOptionalText(payload.cargaHorariaOrgao),
-        SITUACAO_FUNCIONAL: this.normalizeOptionalText(payload.situacaoFuncional),
-        CARGO_ORGAO: this.normalizeOptionalText(payload.cargoOrgao),
-        FUNCAO_ORGAO: this.normalizeOptionalText(payload.funcaoOrgao),
-        PROFISSAO_ORGAO: this.normalizeOptionalText(payload.profissaoOrgao),
-        VINCULO_ORGAO: this.normalizeOptionalText(payload.vinculoOrgao),
-        ADMISSAO_ORGAO: this.toDateValue(payload.admissaoOrgao),
-        APOSENTADORIA_ORGAO: this.toDateValue(payload.aposentadoriaOrgao),
-        ADICIONAR_OUTRA_FILIACAO: this.boolToLegacy(payload.adicionarOutraFiliacao),
-        MATRICULA_ORGAOI: this.normalizeOptionalText(payload.matriculaOrgaoI),
-        REGIAO_ORGAOI: this.normalizeOptionalText(payload.estado)?.toUpperCase() ?? null,
-        NIVELSALARIAL_ORGAOI: this.normalizeOptionalText(payload.nivelSalarialOrgaoI),
-        CARGAHORARIA_ORGAOI: this.normalizeOptionalText(payload.cargaHorariaOrgaoI),
-        SITUACAO_ORGAOI: this.normalizeOptionalText(payload.situacaoOrgaoI),
-        CARGO_ORGAOI: this.normalizeOptionalText(payload.cargoOrgaoI),
-        FUNCAO_ORGAOI: this.normalizeOptionalText(payload.funcaoOrgaoI),
-        PROFISSAO_ORGAOI: this.normalizeOptionalText(payload.profissaoOrgaoI),
-        VINCULO_ORGAOI: this.normalizeOptionalText(payload.vinculoOrgaoI),
-        ADMISSAO_ORGAOI: this.toDateValue(payload.admissaoOrgaoI),
-        APOSENTADORIA_ORGAOI: this.toDateValue(payload.aposentadoriaOrgaoI),
-        AUTORIZAR_DESCONTO: this.boolToLegacy(payload.autorizarDesconto),
-        AUTORIZAR_LGPD: this.boolToLegacy(payload.autorizarLgpd),
-        TERMO_LGPD: this.normalizeOptionalText(payload.termoLgpd),
-        CODIGO_EMPRESA: this.normalizeOptionalText(payload.codigoEmpresa),
-        CODIGO_EMPRESAI: this.normalizeOptionalText(payload.codigoEmpresaI),
-        CODIGO_PREDIO: this.normalizeOptionalText(payload.codigoPredio),
-        CODIGO_PREDIOI: this.normalizeOptionalText(payload.codigoPredioI),
-        DESCONTAR_INSS: payload.descontarInss ?? "N",
-        DATA_DESCONTO_INSS: this.toDateValue(payload.dataDescontoInss),
-        NUMERO_BENEFICIO_INSS: this.normalizeOptionalText(payload.numeroBeneficioInss),
-        CODIGO_ESPECIE_INSS: this.normalizeOptionalText(payload.codigoEspecieInss),
-        DESCONTAR_INSSI: payload.descontarInssI ?? "N",
-        DATA_DESCONTO_INSSI: this.toDateValue(payload.dataDescontoInssI),
-        CODIGO_ESPECIE_INSSI: this.normalizeOptionalText(payload.codigoEspecieInssI),
-        NUMERO_BENEFICIO_INSSI: this.normalizeOptionalText(payload.numeroBeneficioInssI)
-      }
-    );
+    const persistenceParams = {
+      STATUS: "F",
+      SITUACAO: "1",
+      CPF: cpfDigits,
+      NOME: this.normalizeOptionalText(payload.nome),
+      NOME_SOCIAL: this.normalizeOptionalText(payload.nomeSocial),
+      PAI: this.normalizeOptionalText(payload.pai),
+      MAE: this.normalizeOptionalText(payload.mae),
+      NATURALIDADE: this.normalizeOptionalText(payload.naturalidade),
+      CEP: this.normalizeCep(payload.cep),
+      ENDERECO: this.normalizeOptionalText(payload.endereco),
+      NUMERO: this.normalizeOptionalText(payload.numero),
+      COMPLEMENTO: this.normalizeOptionalText(payload.complemento),
+      BAIRRO: this.normalizeOptionalText(payload.bairro),
+      CIDADE: this.normalizeOptionalText(payload.cidade),
+      ESTADO: this.normalizeOptionalText(payload.estado)?.toUpperCase() ?? null,
+      TELEFONE: this.sanitizePhone(payload.telefone),
+      CELULAR: this.sanitizePhone(payload.celular),
+      CELULARII: this.sanitizePhone(payload.celularIi),
+      DATANASCIMENTO: this.toDateValue(payload.dataNascimento),
+      EMAIL: emailBloqueado ?? this.normalizeOptionalText(payload.email)?.toLowerCase() ?? null,
+      ESTADOCIVIL: this.normalizeOptionalText(payload.estadoCivil),
+      ESPECIFICAR_GENERO: this.normalizeOptionalText(payload.especificarGenero),
+      ORIENTACAO_SEXUAL: this.normalizeOptionalText(payload.orientacaoSexual),
+      SEXO: this.normalizeOptionalText(payload.sexo),
+      RG: this.normalizeOptionalText(payload.rg),
+      DATA_REGISTRO: new Date(),
+      FOTO: photoPerfilBuffer,
+      FOTO_RESIDENCIA: comprovanteBuffer,
+      FOTO_CONTRACHEQUE01: contracheque01Buffer,
+      FOTO_CONTRACHEQUE02: contracheque02Buffer,
+      FOTO_DOCUMENTO: fotoDocumentoBuffer,
+      FOTO_RG_FRENTE: rgFrenteBuffer,
+      FOTO_RG_VERSO: rgVersoBuffer,
+      PROTOCOLO: protocolo,
+      IP: this.normalizeIpAddress(requestIp),
+      DATAEXPRG: this.toDateValue(payload.dataExpRg),
+      SANGUE_TP_RH: this.normalizeOptionalText(payload.sangueTpRh),
+      RG_ORGAO: this.normalizeOptionalText(payload.rgOrgao),
+      RG_UF: this.normalizeOptionalText(payload.rgUf)?.toUpperCase() ?? null,
+      RACA: this.normalizeOptionalText(payload.raca),
+      MATRICULA_ORGAO: this.normalizeOptionalText(payload.matriculaOrgao),
+      REGIAO_ORGAO: this.normalizeOptionalText(payload.estado)?.toUpperCase() ?? null,
+      NIVELSALARIAL_ORGAO: this.normalizeOptionalText(payload.nivelSalarialOrgao),
+      CARGAHORARIA_ORGAO: this.normalizeOptionalText(payload.cargaHorariaOrgao),
+      SITUACAO_FUNCIONAL: this.normalizeOptionalText(payload.situacaoFuncional),
+      CARGO_ORGAO: this.normalizeOptionalText(payload.cargoOrgao),
+      FUNCAO_ORGAO: this.normalizeOptionalText(payload.funcaoOrgao),
+      PROFISSAO_ORGAO: this.normalizeOptionalText(payload.profissaoOrgao),
+      VINCULO_ORGAO: this.normalizeOptionalText(payload.vinculoOrgao),
+      ADMISSAO_ORGAO: this.toDateValue(payload.admissaoOrgao),
+      APOSENTADORIA_ORGAO: this.toDateValue(payload.aposentadoriaOrgao),
+      ADICIONAR_OUTRA_FILIACAO: this.boolToLegacy(payload.adicionarOutraFiliacao),
+      MATRICULA_ORGAOI: this.normalizeOptionalText(payload.matriculaOrgaoI),
+      REGIAO_ORGAOI: this.normalizeOptionalText(payload.estado)?.toUpperCase() ?? null,
+      NIVELSALARIAL_ORGAOI: this.normalizeOptionalText(payload.nivelSalarialOrgaoI),
+      CARGAHORARIA_ORGAOI: this.normalizeOptionalText(payload.cargaHorariaOrgaoI),
+      SITUACAO_ORGAOI: this.normalizeOptionalText(payload.situacaoOrgaoI),
+      CARGO_ORGAOI: this.normalizeOptionalText(payload.cargoOrgaoI),
+      FUNCAO_ORGAOI: this.normalizeOptionalText(payload.funcaoOrgaoI),
+      PROFISSAO_ORGAOI: this.normalizeOptionalText(payload.profissaoOrgaoI),
+      VINCULO_ORGAOI: this.normalizeOptionalText(payload.vinculoOrgaoI),
+      ADMISSAO_ORGAOI: this.toDateValue(payload.admissaoOrgaoI),
+      APOSENTADORIA_ORGAOI: this.toDateValue(payload.aposentadoriaOrgaoI),
+      AUTORIZAR_DESCONTO: this.boolToLegacy(payload.autorizarDesconto),
+      AUTORIZAR_LGPD: this.boolToLegacy(payload.autorizarLgpd),
+      TERMO_LGPD: this.normalizeOptionalText(payload.termoLgpd),
+      CODIGO_EMPRESA: this.normalizeOptionalText(payload.codigoEmpresa),
+      CODIGO_EMPRESAI: this.normalizeOptionalText(payload.codigoEmpresaI),
+      CODIGO_PREDIO: this.normalizeOptionalText(payload.codigoPredio),
+      CODIGO_PREDIOI: this.normalizeOptionalText(payload.codigoPredioI),
+      DESCONTAR_INSS: payload.descontarInss ?? "N",
+      DATA_DESCONTO_INSS: this.toDateValue(payload.dataDescontoInss),
+      NUMERO_BENEFICIO_INSS: this.normalizeOptionalText(payload.numeroBeneficioInss),
+      CODIGO_ESPECIE_INSS: this.normalizeOptionalText(payload.codigoEspecieInss),
+      DESCONTAR_INSSI: payload.descontarInssI ?? "N",
+      DATA_DESCONTO_INSSI: this.toDateValue(payload.dataDescontoInssI),
+      CODIGO_ESPECIE_INSSI: this.normalizeOptionalText(payload.codigoEspecieInssI),
+      NUMERO_BENEFICIO_INSSI: this.normalizeOptionalText(payload.numeroBeneficioInssI)
+    };
+
+    if (draftRegistro) {
+      await this.legacyDatabaseService.query(
+        `
+        Update AGG_FILIACAO
+        Set
+          STATUS = @STATUS,
+          SITUACAO = @SITUACAO,
+          CPF = @CPF,
+          NOME = @NOME,
+          NOME_SOCIAL = @NOME_SOCIAL,
+          PAI = @PAI,
+          MAE = @MAE,
+          NATURALIDADE = @NATURALIDADE,
+          CEP = @CEP,
+          ENDERECO = @ENDERECO,
+          NUMERO = @NUMERO,
+          COMPLEMENTO = @COMPLEMENTO,
+          BAIRRO = @BAIRRO,
+          CIDADE = @CIDADE,
+          ESTADO = @ESTADO,
+          TELEFONE = @TELEFONE,
+          CELULAR = @CELULAR,
+          CELULARII = @CELULARII,
+          DATANASCIMENTO = @DATANASCIMENTO,
+          EMAIL = @EMAIL,
+          ESTADOCIVIL = @ESTADOCIVIL,
+          ESPECIFICAR_GENERO = @ESPECIFICAR_GENERO,
+          ORIENTACAO_SEXUAL = @ORIENTACAO_SEXUAL,
+          SEXO = @SEXO,
+          RG = @RG,
+          DATA_REGISTRO = @DATA_REGISTRO,
+          FOTO = @FOTO,
+          FOTO_RESIDENCIA = @FOTO_RESIDENCIA,
+          FOTO_CONTRACHEQUE01 = @FOTO_CONTRACHEQUE01,
+          FOTO_CONTRACHEQUE02 = @FOTO_CONTRACHEQUE02,
+          FOTO_DOCUMENTO = @FOTO_DOCUMENTO,
+          FOTO_RG_FRENTE = @FOTO_RG_FRENTE,
+          FOTO_RG_VERSO = @FOTO_RG_VERSO,
+          PROTOCOLO = @PROTOCOLO,
+          IP = @IP,
+          DATAEXPRG = @DATAEXPRG,
+          SANGUE_TP_RH = @SANGUE_TP_RH,
+          RG_ORGAO = @RG_ORGAO,
+          RG_UF = @RG_UF,
+          RACA = @RACA,
+          MATRICULA_ORGAO = @MATRICULA_ORGAO,
+          REGIAO_ORGAO = @REGIAO_ORGAO,
+          NIVELSALARIAL_ORGAO = @NIVELSALARIAL_ORGAO,
+          CARGAHORARIA_ORGAO = @CARGAHORARIA_ORGAO,
+          SITUACAO_FUNCIONAL = @SITUACAO_FUNCIONAL,
+          CARGO_ORGAO = @CARGO_ORGAO,
+          FUNCAO_ORGAO = @FUNCAO_ORGAO,
+          PROFISSAO_ORGAO = @PROFISSAO_ORGAO,
+          VINCULO_ORGAO = @VINCULO_ORGAO,
+          ADMISSAO_ORGAO = @ADMISSAO_ORGAO,
+          APOSENTADORIA_ORGAO = @APOSENTADORIA_ORGAO,
+          ADICIONAR_OUTRA_FILIACAO = @ADICIONAR_OUTRA_FILIACAO,
+          MATRICULA_ORGAOI = @MATRICULA_ORGAOI,
+          REGIAO_ORGAOI = @REGIAO_ORGAOI,
+          NIVELSALARIAL_ORGAOI = @NIVELSALARIAL_ORGAOI,
+          CARGAHORARIA_ORGAOI = @CARGAHORARIA_ORGAOI,
+          SITUACAO_ORGAOI = @SITUACAO_ORGAOI,
+          CARGO_ORGAOI = @CARGO_ORGAOI,
+          FUNCAO_ORGAOI = @FUNCAO_ORGAOI,
+          PROFISSAO_ORGAOI = @PROFISSAO_ORGAOI,
+          VINCULO_ORGAOI = @VINCULO_ORGAOI,
+          ADMISSAO_ORGAOI = @ADMISSAO_ORGAOI,
+          APOSENTADORIA_ORGAOI = @APOSENTADORIA_ORGAOI,
+          AUTORIZAR_DESCONTO = @AUTORIZAR_DESCONTO,
+          AUTORIZAR_LGPD = @AUTORIZAR_LGPD,
+          TERMO_LGPD = @TERMO_LGPD,
+          CODIGO_EMPRESA = @CODIGO_EMPRESA,
+          CODIGO_EMPRESAI = @CODIGO_EMPRESAI,
+          CODIGO_PREDIO = @CODIGO_PREDIO,
+          CODIGO_PREDIOI = @CODIGO_PREDIOI,
+          DESCONTAR_INSS = @DESCONTAR_INSS,
+          DATA_DESCONTO_INSS = @DATA_DESCONTO_INSS,
+          NUMERO_BENEFICIO_INSS = @NUMERO_BENEFICIO_INSS,
+          CODIGO_ESPECIE_INSS = @CODIGO_ESPECIE_INSS,
+          DESCONTAR_INSSI = @DESCONTAR_INSSI,
+          DATA_DESCONTO_INSSI = @DATA_DESCONTO_INSSI,
+          CODIGO_ESPECIE_INSSI = @CODIGO_ESPECIE_INSSI,
+          NUMERO_BENEFICIO_INSSI = @NUMERO_BENEFICIO_INSSI
+        Where
+          REGISTRO = @REGISTRO
+        `,
+        {
+          ...persistenceParams,
+          REGISTRO: draftRegistro
+        }
+      );
+    } else {
+      await this.legacyDatabaseService.query(
+        `
+        Insert Into AGG_FILIACAO
+          (
+            STATUS,
+            SITUACAO,
+            CPF,
+            NOME,
+            NOME_SOCIAL,
+            PAI,
+            MAE,
+            NATURALIDADE,
+            CEP,
+            ENDERECO,
+            NUMERO,
+            COMPLEMENTO,
+            BAIRRO,
+            CIDADE,
+            ESTADO,
+            TELEFONE,
+            CELULAR,
+            CELULARII,
+            DATANASCIMENTO,
+            EMAIL,
+            ESTADOCIVIL,
+            ESPECIFICAR_GENERO,
+            ORIENTACAO_SEXUAL,
+            SEXO,
+            RG,
+            DATA_REGISTRO,
+            FOTO,
+            FOTO_RESIDENCIA,
+            FOTO_CONTRACHEQUE01,
+            FOTO_CONTRACHEQUE02,
+            FOTO_DOCUMENTO,
+            FOTO_RG_FRENTE,
+            FOTO_RG_VERSO,
+            PROTOCOLO,
+            IP,
+            DATAEXPRG,
+            SANGUE_TP_RH,
+            RG_ORGAO,
+            RG_UF,
+            RACA,
+            MATRICULA_ORGAO,
+            REGIAO_ORGAO,
+            NIVELSALARIAL_ORGAO,
+            CARGAHORARIA_ORGAO,
+            SITUACAO_FUNCIONAL,
+            CARGO_ORGAO,
+            FUNCAO_ORGAO,
+            PROFISSAO_ORGAO,
+            VINCULO_ORGAO,
+            ADMISSAO_ORGAO,
+            APOSENTADORIA_ORGAO,
+            ADICIONAR_OUTRA_FILIACAO,
+            MATRICULA_ORGAOI,
+            REGIAO_ORGAOI,
+            NIVELSALARIAL_ORGAOI,
+            CARGAHORARIA_ORGAOI,
+            SITUACAO_ORGAOI,
+            CARGO_ORGAOI,
+            FUNCAO_ORGAOI,
+            PROFISSAO_ORGAOI,
+            VINCULO_ORGAOI,
+            ADMISSAO_ORGAOI,
+            APOSENTADORIA_ORGAOI,
+            AUTORIZAR_DESCONTO,
+            AUTORIZAR_LGPD,
+            TERMO_LGPD,
+            CODIGO_EMPRESA,
+            CODIGO_EMPRESAI,
+            CODIGO_PREDIO,
+            CODIGO_PREDIOI,
+            DESCONTAR_INSS,
+            DATA_DESCONTO_INSS,
+            NUMERO_BENEFICIO_INSS,
+            CODIGO_ESPECIE_INSS,
+            DESCONTAR_INSSI,
+            DATA_DESCONTO_INSSI,
+            CODIGO_ESPECIE_INSSI,
+            NUMERO_BENEFICIO_INSSI
+          )
+        Values
+          (
+            @STATUS,
+            @SITUACAO,
+            @CPF,
+            @NOME,
+            @NOME_SOCIAL,
+            @PAI,
+            @MAE,
+            @NATURALIDADE,
+            @CEP,
+            @ENDERECO,
+            @NUMERO,
+            @COMPLEMENTO,
+            @BAIRRO,
+            @CIDADE,
+            @ESTADO,
+            @TELEFONE,
+            @CELULAR,
+            @CELULARII,
+            @DATANASCIMENTO,
+            @EMAIL,
+            @ESTADOCIVIL,
+            @ESPECIFICAR_GENERO,
+            @ORIENTACAO_SEXUAL,
+            @SEXO,
+            @RG,
+            @DATA_REGISTRO,
+            @FOTO,
+            @FOTO_RESIDENCIA,
+            @FOTO_CONTRACHEQUE01,
+            @FOTO_CONTRACHEQUE02,
+            @FOTO_DOCUMENTO,
+            @FOTO_RG_FRENTE,
+            @FOTO_RG_VERSO,
+            @PROTOCOLO,
+            @IP,
+            @DATAEXPRG,
+            @SANGUE_TP_RH,
+            @RG_ORGAO,
+            @RG_UF,
+            @RACA,
+            @MATRICULA_ORGAO,
+            @REGIAO_ORGAO,
+            @NIVELSALARIAL_ORGAO,
+            @CARGAHORARIA_ORGAO,
+            @SITUACAO_FUNCIONAL,
+            @CARGO_ORGAO,
+            @FUNCAO_ORGAO,
+            @PROFISSAO_ORGAO,
+            @VINCULO_ORGAO,
+            @ADMISSAO_ORGAO,
+            @APOSENTADORIA_ORGAO,
+            @ADICIONAR_OUTRA_FILIACAO,
+            @MATRICULA_ORGAOI,
+            @REGIAO_ORGAOI,
+            @NIVELSALARIAL_ORGAOI,
+            @CARGAHORARIA_ORGAOI,
+            @SITUACAO_ORGAOI,
+            @CARGO_ORGAOI,
+            @FUNCAO_ORGAOI,
+            @PROFISSAO_ORGAOI,
+            @VINCULO_ORGAOI,
+            @ADMISSAO_ORGAOI,
+            @APOSENTADORIA_ORGAOI,
+            @AUTORIZAR_DESCONTO,
+            @AUTORIZAR_LGPD,
+            @TERMO_LGPD,
+            @CODIGO_EMPRESA,
+            @CODIGO_EMPRESAI,
+            @CODIGO_PREDIO,
+            @CODIGO_PREDIOI,
+            @DESCONTAR_INSS,
+            @DATA_DESCONTO_INSS,
+            @NUMERO_BENEFICIO_INSS,
+            @CODIGO_ESPECIE_INSS,
+            @DESCONTAR_INSSI,
+            @DATA_DESCONTO_INSSI,
+            @CODIGO_ESPECIE_INSSI,
+            @NUMERO_BENEFICIO_INSSI
+          )
+        `,
+        persistenceParams
+      );
+    }
 
     return {
       success: true,

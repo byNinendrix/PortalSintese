@@ -388,6 +388,8 @@ export interface LookupOption {
 
 export interface SolicitacaoFiliacaoBootstrapResponse {
   cpf: Cpf;
+  solicitacaoStatus: "A" | "F" | null;
+  hasDraftInProgress: boolean;
   nome: string;
   nomeSocial: string;
   pai: string;
@@ -415,7 +417,52 @@ export interface SolicitacaoFiliacaoBootstrapResponse {
   rgOrgao: string;
   rgUf: string;
   raca: string;
+  matriculaOrgao: string;
+  codigoEmpresa: string;
+  codigoPredio: string;
+  situacaoFuncional: string;
+  nivelSalarialOrgao: string;
+  cargoOrgao: string;
+  profissaoOrgao: string;
+  funcaoOrgao: string;
+  vinculoOrgao: string;
+  cargaHorariaOrgao: string;
+  admissaoOrgao: string | null;
+  aposentadoriaOrgao: string | null;
+  descontarInss: "N" | "S" | "";
+  dataDescontoInss: string | null;
+  numeroBeneficioInss: string;
+  codigoEspecieInss: string;
+  adicionarOutraFiliacao: boolean;
+  matriculaOrgaoI: string;
+  codigoEmpresaI: string;
+  codigoPredioI: string;
+  situacaoOrgaoI: string;
+  nivelSalarialOrgaoI: string;
+  cargoOrgaoI: string;
+  profissaoOrgaoI: string;
+  funcaoOrgaoI: string;
+  vinculoOrgaoI: string;
+  cargaHorariaOrgaoI: string;
+  admissaoOrgaoI: string | null;
+  aposentadoriaOrgaoI: string | null;
+  descontarInssI: "N" | "S" | "";
+  dataDescontoInssI: string | null;
+  numeroBeneficioInssI: string;
+  codigoEspecieInssI: string;
+  autorizarDesconto: boolean;
+  autorizarLgpd: boolean;
+  termoLgpdConfirmacao: string;
+  termoAutorizacaoDesconto: string;
+  termoLgpdTexto: string;
+  termoLgpdDataExtenso: string;
   fotoPerfilUrl: string | null;
+  fotoResidenciaUrl: string | null;
+  fotoContracheque01Url: string | null;
+  fotoContracheque02Url: string | null;
+  fotoDocumentoUrl: string | null;
+  fotoRgFrenteUrl: string | null;
+  fotoRgVersoUrl: string | null;
   fatoresSanguineos: LookupOption[];
 }
 
