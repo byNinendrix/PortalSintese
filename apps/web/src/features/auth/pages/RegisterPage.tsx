@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@sintese/ui";
 import { digitsOnly, formatCpf, formatPhoneBr, isValidCpf, normalizeEmail } from "../../../shared/utils/masks";
+import { ApiRequestError } from "../../../shared/services/apiClient";
 import { useCheckCpfExistsMutation, useRegisterMutation } from "../hooks/useAuthMutations";
 
 type PasswordChannel = "email" | "whatsapp";
@@ -97,13 +98,30 @@ export function RegisterPage() {
 
     registerMutation.mutate({
       cpf: cpfDigits,
-      email: channel === "email" ? normalizedEmail : undefined,
-      whatsapp: channel === "whatsapp" ? whatsappDigits : undefined,
+      email: normalizedEmail || undefined,
+      whatsapp: whatsappDigits || undefined,
       preferredChannel: channel,
       fullName: "Cadastro Web",
       password: `primeiro-acesso-${channel}`
+    }, {
+      onError: (error) => {
+        if (error instanceof ApiRequestError && error.status === 409) {
+          setCpfAlreadyExists(true);
+          setErrors((prev) => ({
+            ...prev,
+            cpf: "CPF/usuario ja cadastrado. Verifique e-mail ou WhatsApp, ou use Redefinir senha."
+          }));
+        }
+      }
     });
   }
+
+  const registerErrorMessage =
+    registerMutation.isError && registerMutation.error instanceof ApiRequestError && registerMutation.error.status === 409
+      ? "CPF/usuario ja cadastrado. Verifique e-mail ou WhatsApp, ou use Redefinir senha."
+      : registerMutation.isError
+        ? "Falha ao confirmar cadastro. Tente novamente."
+        : null;
 
   return (
     <section className="auth-card-modern mx-auto w-full max-w-[560px]">
@@ -118,7 +136,7 @@ export function RegisterPage() {
 
       <h1 className="section-title mb-4">Efetuar Cadastro Web</h1>
 
-      {registerMutation.isError ? <div className="alert-error mb-3">Falha ao confirmar cadastro (mock/API).</div> : null}
+      {registerErrorMessage ? <div className="alert-error mb-3">{registerErrorMessage}</div> : null}
       {registerMutation.isSuccess ? (
         <div className="alert-success mb-3">
           Cadastro confirmado com sucesso. Volte para a tela principal, informe seu CPF e senha e clique em Acessar.
