@@ -22,7 +22,6 @@ const actions: MenuAction[] = [
   { label: "Atualizar Meus Dados", to: "/atualizar-meus-dados", requiresFiliacaoAtiva: true },
   { label: "Minhas Filiações", to: "/minhas-filiacoes", requiresFiliacaoAtiva: true },
   { label: "Termo L.G.P.D. Online", to: "/lgpd-online", requiresFiliacaoAtiva: true },
-  { label: "Debug Sessão", to: "/debug-sessao" },
   { label: "Redefinir senha", to: "/redefinir-senha" }
 ];
 

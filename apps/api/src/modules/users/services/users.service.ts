@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import * as QRCode from "qrcode";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
@@ -449,6 +449,16 @@ interface SindicatoMailSettingsRow {
   NOME_EMAIL: string | null;
   USUARIO_EMAIL: string | null;
   SENHA_EMAIL: string | null;
+}
+
+interface WhatsappTokenSettingsRow {
+  CNPJ?: string | null;
+  ENDPOINT_API?: string | null;
+  TOKEN_API?: string | null;
+  ATIVO?: string | number | boolean | null;
+  BOT?: string | null;
+  DEPARTAMENTO?: string | null;
+  PRINCIPAL?: string | number | boolean | null;
 }
 
 @Injectable()
@@ -929,12 +939,21 @@ export class UsersService {
   }
 
   private generateFirstPassword(): string {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-    const randomPart = (size: number) =>
-      Array.from({ length: size })
-        .map(() => chars[Math.floor(Math.random() * chars.length)])
-        .join("");
-    return `${randomPart(4)}-${randomPart(1)}`;
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const lower = "abcdefghijkmnopqrstuvwxyz";
+    const numbers = "23456789";
+    const special = "!@#$%*";
+    const all = `${upper}${lower}${numbers}${special}`;
+
+    const pick = (charset: string) => charset[randomInt(0, charset.length)];
+    const chars = [pick(upper), pick(lower), pick(numbers), pick(special), pick(all), pick(all)];
+
+    for (let i = chars.length - 1; i > 0; i -= 1) {
+      const j = randomInt(0, i + 1);
+      [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+
+    return chars.join("");
   }
 
   private maskCpfForEmail(cpfDigits: string): string {
@@ -1024,6 +1043,165 @@ Por segurança, altere essa senha no primeiro acesso.`;
       subject: "Bem-vindo ao Portal do Filiad@ | Sua primeira senha de acesso",
       text,
       html
+    });
+  }
+
+  private maskCpfForWhatsapp(cpfDigits: string): string {
+    if (cpfDigits.length !== 11) {
+      return cpfDigits;
+    }
+    return `XXX.${cpfDigits.slice(3, 6)}.${cpfDigits.slice(6, 9)}-XX`;
+  }
+
+  private normalizeWhatsappNumberForApi(phoneDigits: string): string {
+    const digits = phoneDigits.replace(/\D/g, "");
+    if (digits.startsWith("55")) {
+      return digits;
+    }
+    if (digits.length === 10 || digits.length === 11) {
+      return `55${digits}`;
+    }
+    return digits;
+  }
+
+  private resolveWhatsappEndpointHost(endpoint: string): string {
+    try {
+      const parsed = new URL(endpoint);
+      return parsed.host;
+    } catch {
+      return endpoint;
+    }
+  }
+
+  private logWhatsappFirstPasswordAudit(payload: {
+    cpf: string;
+    number: string;
+    endpoint: string;
+    event: "attempt" | "success" | "error";
+    detail?: string;
+  }): void {
+    const maskedCpf = this.maskCpfForWhatsapp(payload.cpf);
+    const maskedNumber =
+      payload.number.length >= 4 ? `***${payload.number.slice(-4)}` : "***";
+    const endpointHost = this.resolveWhatsappEndpointHost(payload.endpoint);
+    const baseMessage = `[AUDIT][WHATSAPP_FIRST_PASSWORD] event=${payload.event} cpf=${maskedCpf} number=${maskedNumber} endpoint=${endpointHost}`;
+
+    if (payload.event === "error") {
+      this.logger.error(`${baseMessage}${payload.detail ? ` detail=${payload.detail}` : ""}`);
+      return;
+    }
+
+    this.logger.log(`${baseMessage}${payload.detail ? ` detail=${payload.detail}` : ""}`);
+  }
+
+  private async getWhatsappBotSettings(): Promise<WhatsappTokenSettingsRow> {
+    const rows = await this.legacyDatabaseService.query<WhatsappTokenSettingsRow>(
+      `
+      Select
+        SINDICATO.CNPJ,
+        TOKENS_WHATSAPP.ENDPOINT_API,
+        TOKENS_WHATSAPP.TOKEN_API,
+        TOKENS_WHATSAPP.ATIVO,
+        TOKENS_WHATSAPP.BOT,
+        TOKENS_WHATSAPP.DEPARTAMENTO,
+        TOKENS_WHATSAPP.PRINCIPAL
+      From
+        SINDICATO
+        Left Join
+        TOKENS_WHATSAPP On SINDICATO.CNPJ = TOKENS_WHATSAPP.CNPJ_SINDICATO
+      Where
+        TOKENS_WHATSAPP.DEPARTAMENTO = 'BOT MENSAGENS'
+      `
+    );
+
+    const activeRows = rows.filter((row) => this.isFlagEnabled(row.ATIVO));
+    const source = activeRows.length > 0 ? activeRows : rows;
+    const ordered = [...source].sort((a, b) => {
+      const aPrincipal = this.isFlagEnabled(a.PRINCIPAL) ? 1 : 0;
+      const bPrincipal = this.isFlagEnabled(b.PRINCIPAL) ? 1 : 0;
+      return bPrincipal - aPrincipal;
+    });
+
+    const settings = ordered[0];
+    const endpoint = settings?.ENDPOINT_API?.trim() ?? "";
+    const token = settings?.TOKEN_API?.trim() ?? "";
+
+    if (!settings || !endpoint || !token) {
+      throw new InternalServerErrorException("Configuracao do WhatsApp nao encontrada.");
+    }
+
+    return settings;
+  }
+
+  private async sendFirstPasswordWhatsapp(payload: {
+    cpf: string;
+    whatsapp: string;
+    password: string;
+  }): Promise<void> {
+    const settings = await this.getWhatsappBotSettings();
+    const endpoint = settings.ENDPOINT_API?.trim() || "https://api.conversafacil.com/api/messages/send";
+    const token = settings.TOKEN_API?.trim() ?? "";
+    const number = this.normalizeWhatsappNumberForApi(payload.whatsapp);
+
+    if (!number) {
+      throw new BadRequestException("Numero de WhatsApp invalido para envio da senha.");
+    }
+
+    const body = [
+      `Sr(a).: ${this.maskCpfForWhatsapp(payload.cpf)}`,
+      `Sua primeira senha de acesso ao Portal do Filiado do SINTESE e: ${payload.password}`,
+      "Por favor, altere a senha assim que possivel para garantir a seguranca do seu acesso."
+    ].join("\n");
+
+    this.logWhatsappFirstPasswordAudit({
+      cpf: payload.cpf,
+      number,
+      endpoint,
+      event: "attempt"
+    });
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          number,
+          body
+        })
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "falha desconhecida";
+      this.logWhatsappFirstPasswordAudit({
+        cpf: payload.cpf,
+        number,
+        endpoint,
+        event: "error",
+        detail
+      });
+      throw new InternalServerErrorException("Nao foi possivel enviar a primeira senha via WhatsApp.");
+    }
+
+    if (!response.ok) {
+      this.logWhatsappFirstPasswordAudit({
+        cpf: payload.cpf,
+        number,
+        endpoint,
+        event: "error",
+        detail: `status=${response.status}`
+      });
+      throw new InternalServerErrorException("Nao foi possivel enviar a primeira senha via WhatsApp.");
+    }
+
+    this.logWhatsappFirstPasswordAudit({
+      cpf: payload.cpf,
+      number,
+      endpoint,
+      event: "success",
+      detail: `status=${response.status}`
     });
   }
 
@@ -3228,6 +3406,14 @@ Por segurança, altere essa senha no primeiro acesso.`;
       await this.sendFirstPasswordEmail({
         to: email,
         cpf: cpfDigits,
+        password: firstPassword
+      });
+    }
+
+    if (payload.preferredChannel === "whatsapp" && whatsapp) {
+      await this.sendFirstPasswordWhatsapp({
+        cpf: cpfDigits,
+        whatsapp,
         password: firstPassword
       });
     }

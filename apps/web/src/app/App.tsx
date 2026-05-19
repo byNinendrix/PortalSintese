@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
 import { AtualizarMeusDadosPage } from "../features/atualizar-meus-dados/pages/AtualizarMeusDadosPage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
@@ -7,7 +7,7 @@ import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { SessionDebugPage } from "../features/auth/pages/SessionDebugPage";
-import { AUTH_SESSION_CHANGED_EVENT, hasAuthSession } from "../features/auth/services/authSession";
+import { AUTH_SESSION_CHANGED_EVENT, clearAuthSession, hasAuthSession } from "../features/auth/services/authSession";
 import { ConveniosPage } from "../features/convenios/pages/ConveniosPage";
 import { CarteiraPage } from "../features/carteira/pages/CarteiraPage";
 import { CarteiraLayoutConfigPage } from "../features/carteira/pages/CarteiraLayoutConfigPage";
@@ -21,8 +21,12 @@ import { ProtocoloRelatorioPage } from "../features/protocolos/pages/ProtocoloRe
 import { RegenciaClassePage } from "../features/regencia-classe/pages/RegenciaClassePage";
 import { SolicitarFiliacaoPage } from "../features/solicitar-filiacao/pages/SolicitarFiliacaoPage";
 
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
 export function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => hasAuthSession());
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     function syncAuthState() {
@@ -44,6 +48,64 @@ export function App() {
       window.removeEventListener("storage", onStorage);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const publicPaths = new Set(["/login", "/cadastro", "/recuperar-senha"]);
+    if (publicPaths.has(location.pathname)) {
+      return;
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const doLogoutByInactivity = () => {
+      clearAuthSession();
+      setIsAuthenticated(false);
+      navigate("/login", { replace: true });
+    };
+
+    const resetIdleTimer = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = setTimeout(doLogoutByInactivity, IDLE_TIMEOUT_MS);
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click"
+    ];
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, resetIdleTimer, { passive: true });
+    });
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        resetIdleTimer();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    resetIdleTimer();
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, resetIdleTimer);
+      });
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [isAuthenticated, location.pathname, navigate]);
 
   return (
     <AppShell>
