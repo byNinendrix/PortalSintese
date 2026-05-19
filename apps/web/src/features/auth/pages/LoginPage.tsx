@@ -19,6 +19,19 @@ export function LoginPage() {
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const loginMutation = useLoginMutation();
+  const appVersionRaw = (import.meta.env.VITE_APP_VERSION as string | undefined)?.trim() || "1.0.0";
+  const appVersion = appVersionRaw.toLowerCase().startsWith("v") ? appVersionRaw : `v${appVersionRaw}`;
+  const buildDateEnv = (import.meta.env.VITE_BUILD_DATE as string | undefined)?.trim();
+  const buildDate = (() => {
+    if (!buildDateEnv) {
+      return new Intl.DateTimeFormat("pt-BR").format(new Date());
+    }
+    const parsed = new Date(buildDateEnv);
+    if (Number.isNaN(parsed.getTime())) {
+      return buildDateEnv;
+    }
+    return new Intl.DateTimeFormat("pt-BR").format(parsed);
+  })();
 
   function validateForm(): boolean {
     const nextErrors: LoginErrors = {};
@@ -226,6 +239,10 @@ export function LoginPage() {
           className="h-auto w-full max-w-[220px] object-contain"
         />
       </div>
+
+      <p className="mt-3 text-center text-xs font-medium tracking-[0.02em] text-slate-500">
+        {appVersion} — {buildDate}
+      </p>
     </section>
   );
 }
