@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+﻿import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@sintese/ui";
 
@@ -35,8 +35,9 @@ export function AppShell({ children }: AppShellProps) {
     pathname === "/lgpd-online" ||
     pathname === "/cadastro" ||
     pathname === "/recuperar-senha" ||
-    pathname === "/convenios";
-  const isWideLegacyView = pathname === "/protocolo-relatorio";
+    pathname === "/convenios" ||
+    pathname === "/jogo-corujinha";
+  const isWideLegacyView = pathname === "/protocolo-relatorio" || pathname === "/jogo-corujinha";
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -137,3 +138,4 @@ export function AppShell({ children }: AppShellProps) {
     </div>
   );
 }
+

@@ -12,6 +12,7 @@ import { ConveniosPage } from "../features/convenios/pages/ConveniosPage";
 import { CarteiraPage } from "../features/carteira/pages/CarteiraPage";
 import { CarteiraLayoutConfigPage } from "../features/carteira/pages/CarteiraLayoutConfigPage";
 import { FichaCadastralPage } from "../features/ficha-cadastral/pages/FichaCadastralPage";
+import { JogoCorujinhaPage } from "../features/jogo-corujinha/pages/JogoCorujinhaPage";
 import { LgpdOnlinePage } from "../features/lgpd/pages/LgpdOnlinePage";
 import { MainMenuPage } from "../features/menu/pages/MainMenuPage";
 import { MinhasFiliacoesPage } from "../features/minhas-filiacoes/pages/MinhasFiliacoesPage";
@@ -54,7 +55,7 @@ export function App() {
       return;
     }
 
-    const publicPaths = new Set(["/login", "/cadastro", "/recuperar-senha"]);
+    const publicPaths = new Set(["/login", "/cadastro", "/recuperar-senha", "/jogo-corujinha"]);
     if (publicPaths.has(location.pathname)) {
       return;
     }
@@ -163,6 +164,7 @@ export function App() {
         <Route path="/lgpd-online" element={isAuthenticated ? <LgpdOnlinePage /> : <Navigate to="/login" replace />} />
         <Route path="/cadastro" element={<RegisterPage />} />
         <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
+        <Route path="/jogo-corujinha" element={<JogoCorujinhaPage />} />
         <Route path="/convenios" element={<ConveniosPage />} />
         <Route path="/parceiros" element={<ParceirosPage />} />
       </Routes>

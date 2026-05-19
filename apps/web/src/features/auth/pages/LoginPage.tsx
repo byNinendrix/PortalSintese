@@ -194,7 +194,7 @@ export function LoginPage() {
           </Button>
         </Link>
 
-        <Button type="submit" isLoading={loginMutation.isPending} className="btn-modern-danger w-full">
+        <Button type="submit" isLoading={loginMutation.isPending} className="btn-modern-danger btn-access-shine w-full">
           Acessar
         </Button>
       </form>
@@ -230,6 +230,11 @@ export function LoginPage() {
             Tutorial
           </Button>
         </a>
+        <Link to="/jogo-corujinha" className="block">
+          <Button type="button" className="btn-modern-primary w-full">
+            Jogo da Corujinha
+          </Button>
+        </Link>
       </div>
 
       <div className="mt-10 flex justify-center">
