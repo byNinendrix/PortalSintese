@@ -896,6 +896,99 @@
   }
 }
 
+.ficha-direct-desktop .ficha-report-sheet {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: 1px solid #111 !important;
+  padding: 2.2mm 2.6mm !important;
+  font-size: 9px !important;
+}
+
+.ficha-direct-desktop .ficha-report-header {
+  padding-bottom: 1.2mm !important;
+  margin-bottom: 1mm !important;
+}
+
+.ficha-direct-desktop .ficha-report-header-left {
+  padding-right: 22mm !important;
+  gap: 1.4mm !important;
+}
+
+.ficha-direct-desktop .ficha-report-logo {
+  height: 14mm !important;
+}
+
+.ficha-direct-desktop .ficha-report-title-org {
+  font-size: 3.8mm !important;
+  line-height: 1.02 !important;
+}
+
+.ficha-direct-desktop .ficha-report-cnpj {
+  font-size: 2.6mm !important;
+  margin-top: 0.2mm !important;
+}
+
+.ficha-direct-desktop .ficha-report-title {
+  font-size: 4.1mm !important;
+  margin-top: 0.8mm !important;
+  line-height: 1 !important;
+}
+
+.ficha-direct-desktop .ficha-report-qrcode {
+  width: 20mm !important;
+  height: 20mm !important;
+  padding: 0.5mm !important;
+  right: 0.5mm !important;
+}
+
+.ficha-direct-desktop .ficha-dados-wrap {
+  margin-top: 0.8mm !important;
+  grid-template-columns: 1fr 21mm !important;
+  gap: 1mm !important;
+}
+
+.ficha-direct-desktop .ficha-dados-grid {
+  font-size: 2.55mm !important;
+  line-height: 1.03 !important;
+  gap: 0.35mm 0.8mm !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  word-break: break-word !important;
+}
+
+.ficha-direct-desktop .ficha-foto {
+  width: 19mm !important;
+  height: 24mm !important;
+}
+
+.ficha-direct-desktop .ficha-foto-placeholder {
+  width: 19mm !important;
+  height: 24mm !important;
+  font-size: 2.4mm !important;
+}
+
+.ficha-direct-desktop .ficha-bloco {
+  margin-top: 0.7mm !important;
+}
+
+.ficha-direct-desktop .ficha-bloco-titulo {
+  font-size: 3.4mm !important;
+  padding: 0.35mm 0 !important;
+}
+
+.ficha-direct-desktop .ficha-tabela {
+  margin-top: 0.45mm !important;
+  font-size: 2.35mm !important;
+  line-height: 1.02 !important;
+}
+
+.ficha-direct-desktop .ficha-tabela th,
+.ficha-direct-desktop .ficha-tabela td {
+  padding: 0.35mm 0.55mm !important;
+}
+
 @media print {
   @page {
     margin: 0;
@@ -978,6 +1071,15 @@
     padding: 0 !important;
     display: block !important;
     background: transparent !important;
+  }
+
+  .carteira-print-root.carteira-print-root-mobile {
+    page: auto;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
   }
 
   .ficha-print-hide {
@@ -1099,6 +1201,13 @@
     margin: 0 !important;
   }
 
+  .carteira-print-root.carteira-print-root-mobile .carteira-sheet {
+    width: 190mm !important;
+    max-width: 190mm !important;
+    margin: 0 auto !important;
+    gap: 3mm !important;
+  }
+
   .carteira-face {
     width: 85.6mm !important;
     max-width: 85.6mm !important;
@@ -1107,6 +1216,11 @@
     border: 0 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  .carteira-print-root.carteira-print-root-mobile .carteira-face {
+    width: 190mm !important;
+    max-width: 190mm !important;
   }
 
   .carteira-face-front {

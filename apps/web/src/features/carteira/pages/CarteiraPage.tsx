@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { Button } from "@sintese/ui";
 import { digitsOnly } from "../../../shared/utils/masks";
 import { readAuthSession } from "../../auth/services/authSession";
 import { useCarteiraQuery } from "../hooks/useCarteiraQuery";
@@ -12,6 +13,7 @@ export function CarteiraPage() {
   const [searchParams] = useSearchParams();
   const autoPrint = searchParams.get("autoPrint") === "1";
   const embedded = searchParams.get("embedded") === "1";
+  const mobilePrint = searchParams.get("mobilePrint") === "1";
   const session = readAuthSession();
   const cpfDigits = useMemo(() => digitsOnly(session?.cpf ?? ""), [session?.cpf]);
 
@@ -66,11 +68,24 @@ export function CarteiraPage() {
   }, [autoPrint, embedded, carteira, carteiraQuery.isLoading, isLayoutLoading]);
 
   return (
-    <section className="carteira-print-root">
+    <section className={`carteira-print-root${mobilePrint ? " carteira-print-root-mobile" : ""}`}>
       {!cpfDigits ? <div className="alert-error">Sessao invalida. Faca login novamente.</div> : null}
       {carteiraQuery.isError ? <div className="alert-error">Nao foi possivel carregar a carteira.</div> : null}
 
       {carteiraQuery.isLoading ? <div className="carteira-loading">Carregando carteira para impressao...</div> : null}
+
+      {mobilePrint && carteira ? (
+        <div className="ficha-print-hide mb-3 flex w-full max-w-[760px] justify-center gap-2 px-2">
+          <Button type="button" className="btn-modern-primary" onClick={() => window.print()}>
+            Imprimir
+          </Button>
+          <Link to="/menu-principal">
+            <Button type="button" className="btn-modern-danger">
+              Voltar
+            </Button>
+          </Link>
+        </div>
+      ) : null}
 
       {carteira ? (
         <CarteiraPreview carteira={carteira} layout={layout} />

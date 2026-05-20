@@ -45,19 +45,32 @@ export function MainMenuPage() {
       return;
     }
 
+    const isLikelyMobile =
+      window.matchMedia("(max-width: 900px)").matches ||
+      /android|iphone|ipad|ipod|mobile/i.test(window.navigator.userAgent);
+
+    if (isLikelyMobile) {
+      const newTab = window.open("/ficha-cadastral?directView=1", "_blank", "noopener,noreferrer");
+      if (!newTab) {
+        setNotice("Nao foi possivel abrir a nova aba da ficha. Verifique o bloqueador de pop-up.");
+      }
+      return;
+    }
+
     setIsPreparingPrint(true);
     setNotice("Carregando ficha cadastral para impressão...");
 
     const iframe = document.createElement("iframe");
     iframe.setAttribute("title", "Impressão da ficha cadastral");
     iframe.style.position = "fixed";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
+    iframe.style.width = "100vw";
+    iframe.style.height = "100vh";
     iframe.style.opacity = "0";
     iframe.style.border = "0";
     iframe.style.pointerEvents = "none";
-    iframe.style.left = "-9999px";
-    iframe.style.top = "-9999px";
+    iframe.style.left = "0";
+    iframe.style.top = "0";
+    iframe.style.zIndex = "-1";
 
     let finished = false;
     let timeoutId: number | null = null;
@@ -111,6 +124,17 @@ export function MainMenuPage() {
 
     setIsPreparingCarteira(true);
     setNotice("Carregando carteira para impressão...");
+
+    const isLikelyMobile =
+      window.matchMedia("(max-width: 900px)").matches ||
+      /android|iphone|ipad|ipod|mobile/i.test(window.navigator.userAgent);
+
+    if (isLikelyMobile) {
+      setIsPreparingCarteira(false);
+      setNotice(null);
+      navigate("/carteira?mobilePrint=1");
+      return;
+    }
 
     const iframe = document.createElement("iframe");
     iframe.setAttribute("title", "Impressão da carteira");

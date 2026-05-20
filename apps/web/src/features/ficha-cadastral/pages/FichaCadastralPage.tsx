@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@sintese/ui";
 import { digitsOnly, formatCpf } from "../../../shared/utils/masks";
@@ -70,9 +70,17 @@ function fmtDate(value?: string | null): string {
 
 export function FichaCadastralPage() {
   const hasTriggeredAutoPrint = useRef(false);
+  const fichaSheetRef = useRef<HTMLElement | null>(null);
   const [searchParams] = useSearchParams();
   const autoPrint = searchParams.get("autoPrint") === "1";
   const embedded = searchParams.get("embedded") === "1";
+  const mobilePdf = searchParams.get("mobilePdf") === "1";
+  const autoPdf = searchParams.get("autoPdf") === "1";
+  const directView = searchParams.get("directView") === "1";
+  const isAutoPdfMode = mobilePdf && autoPdf;
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const hasTriggeredAutoPdf = useRef(false);
   const session = readAuthSession();
   const cpfDigits = useMemo(() => digitsOnly(session?.cpf ?? ""), [session?.cpf]);
   const usuario = useMemo(() => digitsOnly(session?.cpf ?? ""), [session?.cpf]);
@@ -80,6 +88,69 @@ export function FichaCadastralPage() {
   const fichaQuery = useFichaCadastralQuery(cpfDigits, usuario, Boolean(cpfDigits));
   const ficha = fichaQuery.data;
   const qrcodeSrc = toQrCodeSrc(ficha?.pessoa.qrCodeFicha);
+
+  async function openPdfWithZoom(target: "new-tab" | "same-tab" = "new-tab") {
+    if (!fichaSheetRef.current || isGeneratingPdf) {
+      return;
+    }
+
+    setPdfError(null);
+    setIsGeneratingPdf(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+
+      if (document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+
+      const canvas = await html2canvas(fichaSheetRef.current, {
+        scale: Math.max(2, window.devicePixelRatio || 1),
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false
+      });
+
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imageWidth = pageWidth;
+      const imageHeight = (canvas.height * imageWidth) / canvas.width;
+      const imageData = canvas.toDataURL("image/png", 1.0);
+
+      let heightLeft = imageHeight;
+      let position = 0;
+
+      pdf.addImage(imageData, "PNG", 0, position, imageWidth, imageHeight, undefined, "FAST");
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imageHeight;
+        pdf.addPage("a4", "landscape");
+        pdf.addImage(imageData, "PNG", 0, position, imageWidth, imageHeight, undefined, "FAST");
+        heightLeft -= pageHeight;
+      }
+
+      const blobUrl = String(pdf.output("bloburl"));
+      if (target === "same-tab") {
+        window.location.href = blobUrl;
+      } else {
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch {
+      setPdfError("Nao foi possivel gerar o PDF agora. Tente novamente.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!mobilePdf || !autoPdf || !ficha || fichaQuery.isLoading || hasTriggeredAutoPdf.current) {
+      return;
+    }
+
+    hasTriggeredAutoPdf.current = true;
+    void openPdfWithZoom("same-tab");
+  }, [autoPdf, ficha, fichaQuery.isLoading, mobilePdf]);
 
   useEffect(() => {
     if (!autoPrint || !ficha || fichaQuery.isLoading || hasTriggeredAutoPrint.current) {
@@ -100,27 +171,70 @@ export function FichaCadastralPage() {
   }, [autoPrint, embedded, ficha, fichaQuery.isLoading]);
 
   return (
-    <section className="ficha-screen-shell mx-auto w-full max-w-[1240px] px-3 py-4 sm:px-4 sm:py-6">
-      <div className="ficha-print-hide mb-3 flex justify-between gap-3">
-        <Button type="button" className="btn-modern-primary" onClick={() => window.print()}>
-          Imprimir ficha
-        </Button>
-        <Link to="/menu-principal">
-          <Button type="button" className="btn-modern-danger">
-            Voltar ao menu
-          </Button>
-        </Link>
-      </div>
+    <section
+      className={
+        directView
+          ? "ficha-direct-desktop mx-auto w-full bg-white p-0"
+          : "ficha-screen-shell mx-auto w-full max-w-[1240px] px-3 py-4 sm:px-4 sm:py-6"
+      }
+    >
+      {!isAutoPdfMode && !directView ? (
+        <div className="ficha-print-hide mb-3 flex justify-between gap-3">
+          {mobilePdf ? (
+            <Button type="button" className="btn-modern-primary" onClick={() => void openPdfWithZoom()} isLoading={isGeneratingPdf}>
+              Abrir PDF com zoom
+            </Button>
+          ) : (
+            <Button type="button" className="btn-modern-primary" onClick={() => window.print()}>
+              Imprimir ficha
+            </Button>
+          )}
+          <Link to="/menu-principal">
+            <Button type="button" className="btn-modern-danger">
+              Voltar ao menu
+            </Button>
+          </Link>
+        </div>
+      ) : null}
 
       {!cpfDigits ? <div className="alert-error mb-3">Sessao invalida. Faca login novamente.</div> : null}
       {fichaQuery.isError ? <div className="alert-error mb-3">Nao foi possivel carregar a ficha cadastral.</div> : null}
+      {pdfError ? <div className="alert-error mb-3">{pdfError}</div> : null}
 
       {fichaQuery.isLoading ? (
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Carregando ficha cadastral...</div>
       ) : null}
 
+      {isAutoPdfMode && !pdfError && !fichaQuery.isLoading ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+          Gerando PDF da ficha cadastral...
+        </div>
+      ) : null}
+
       {ficha ? (
-        <article className="ficha-report-sheet ficha-print-sheet">
+        <article
+          ref={fichaSheetRef}
+          className="ficha-report-sheet ficha-print-sheet"
+          style={
+            isAutoPdfMode
+              ? {
+                  position: "fixed",
+                  left: "-200vw",
+                  top: 0,
+                  width: "1240px",
+                  maxWidth: "1240px",
+                  visibility: "hidden",
+                  pointerEvents: "none"
+                }
+              : directView
+                ? {
+                    margin: "0 auto",
+                    width: "1240px",
+                    maxWidth: "1240px"
+                  }
+                : undefined
+          }
+        >
           <header className="ficha-report-header">
             <div className="ficha-report-header-left">
               <img
