@@ -58,6 +58,16 @@ export class UsersController {
     return this.usersService.prepareCarteiraByCpf(cpf);
   }
 
+  @Get("carteira-layout")
+  getCarteiraLayout() {
+    return this.usersService.getCarteiraLayout();
+  }
+
+  @Post("carteira-layout")
+  saveCarteiraLayout(@Body() payload: { layout?: unknown }) {
+    return this.usersService.saveCarteiraLayout(payload);
+  }
+
   @Get("atualizar-dados")
   getAtualizarDados(@Query("cpf") cpf?: string) {
     return this.usersService.getAtualizarDadosByCpf(cpf);

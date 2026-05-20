@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { digitsOnly } from "../../../shared/utils/masks";
 import { readAuthSession } from "../../auth/services/authSession";
 import { useCarteiraQuery } from "../hooks/useCarteiraQuery";
-import { loadCarteiraLayout } from "../layout/carteiraLayout";
+import { loadCarteiraLayout, normalizeCarteiraLayout, saveCarteiraLayout, type CarteiraLayoutConfig } from "../layout/carteiraLayout";
 import { CarteiraPreview } from "../components/CarteiraPreview";
+import { carteiraService } from "../../menu/services/carteira.service";
 
 export function CarteiraPage() {
   const hasTriggeredAutoPrint = useRef(false);
@@ -16,10 +17,38 @@ export function CarteiraPage() {
 
   const carteiraQuery = useCarteiraQuery(cpfDigits, Boolean(cpfDigits));
   const carteira = carteiraQuery.data;
-  const layout = useMemo(() => loadCarteiraLayout(), []);
+  const [layout, setLayout] = useState<CarteiraLayoutConfig>(() => loadCarteiraLayout());
+  const [isLayoutLoading, setIsLayoutLoading] = useState(true);
 
   useEffect(() => {
-    if (!autoPrint || !carteira || carteiraQuery.isLoading || hasTriggeredAutoPrint.current) {
+    let mounted = true;
+
+    async function loadGlobalLayout() {
+      try {
+        const remoteLayout = await carteiraService.getCarteiraLayout();
+        if (!mounted || !remoteLayout) {
+          return;
+        }
+        const normalized = normalizeCarteiraLayout(remoteLayout);
+        setLayout(normalized);
+        saveCarteiraLayout(normalized);
+      } catch {
+        // Keep local fallback.
+      } finally {
+        if (mounted) {
+          setIsLayoutLoading(false);
+        }
+      }
+    }
+
+    void loadGlobalLayout();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!autoPrint || !carteira || carteiraQuery.isLoading || isLayoutLoading || hasTriggeredAutoPrint.current) {
       return;
     }
 
@@ -34,7 +63,7 @@ export function CarteiraPage() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [autoPrint, embedded, carteira, carteiraQuery.isLoading]);
+  }, [autoPrint, embedded, carteira, carteiraQuery.isLoading, isLayoutLoading]);
 
   return (
     <section className="carteira-print-root">

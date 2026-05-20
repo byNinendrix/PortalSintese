@@ -7,6 +7,7 @@ import { readAuthSession } from "../../auth/services/authSession";
 import { digitsOnly } from "../../../shared/utils/masks";
 import { useCarteiraQuery } from "../hooks/useCarteiraQuery";
 import { CarteiraPreview } from "../components/CarteiraPreview";
+import { carteiraService } from "../../menu/services/carteira.service";
 
 type FieldPath =
   | "front.foto"
@@ -70,6 +71,7 @@ export function CarteiraLayoutConfigPage() {
   const [layout, setLayout] = useState<CarteiraLayoutConfig>(() => loadCarteiraLayout());
   const [selected, setSelected] = useState<FieldPath>("front.nome");
   const [notice, setNotice] = useState<string | null>(null);
+  const [isSavingGlobal, setIsSavingGlobal] = useState(false);
   const dragRef = useRef<{ side: CarteiraSide; key: string; startX: number; startY: number; startField: CarteiraLayoutField; rect: DOMRect } | null>(null);
 
   const currentField = getField(layout, selected);
@@ -128,10 +130,43 @@ export function CarteiraLayoutConfigPage() {
     };
   }, []);
 
-  function saveLayout() {
-    saveCarteiraLayout(layout);
-    setNotice("Layout salvo com sucesso.");
-    window.setTimeout(() => setNotice(null), 2200);
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadGlobalLayout() {
+      try {
+        const remoteLayout = await carteiraService.getCarteiraLayout();
+        if (!mounted || !remoteLayout) {
+          return;
+        }
+        const normalized = normalizeCarteiraLayout(remoteLayout);
+        setLayout(normalized);
+        saveCarteiraLayout(normalized);
+      } catch {
+        // Keep local fallback.
+      }
+    }
+
+    void loadGlobalLayout();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function saveLayout() {
+    const normalized = normalizeCarteiraLayout(layout);
+    saveCarteiraLayout(normalized);
+    setIsSavingGlobal(true);
+
+    try {
+      await carteiraService.saveCarteiraLayout(normalized);
+      setNotice("Layout salvo como padrao global com sucesso.");
+    } catch {
+      setNotice("Layout salvo apenas neste dispositivo. Nao foi possivel salvar no servidor.");
+    } finally {
+      setIsSavingGlobal(false);
+      window.setTimeout(() => setNotice(null), 2600);
+    }
   }
 
   function resetLayout() {
@@ -151,7 +186,7 @@ export function CarteiraLayoutConfigPage() {
           <Button type="button" className="btn-secondary" onClick={resetLayout}>
             Resetar padrão
           </Button>
-          <Button type="button" className="btn-modern-primary" onClick={saveLayout}>
+          <Button type="button" className="btn-modern-primary" onClick={() => void saveLayout()} disabled={isSavingGlobal}>
             Salvar layout
           </Button>
           <Link to="/menu-principal" className="block">

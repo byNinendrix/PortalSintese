@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
 import { randomInt, randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import * as path from "node:path";
 import * as nodemailer from "nodemailer";
 import * as QRCode from "qrcode";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
@@ -461,11 +463,82 @@ interface WhatsappTokenSettingsRow {
   PRINCIPAL?: string | number | boolean | null;
 }
 
+interface CarteiraLayoutPayload {
+  layout?: unknown;
+}
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
   constructor(private readonly legacyDatabaseService: LegacyDatabaseService) {}
+
+  private getCarteiraLayoutFilePath(): string {
+    const customPath = process.env.CARTEIRA_LAYOUT_FILE?.trim();
+    if (customPath) {
+      return customPath;
+    }
+    return path.resolve(process.cwd(), ".local-dev", "carteira-layout-v1.json");
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  private isValidCarteiraLayout(layout: unknown): boolean {
+    if (!this.isPlainObject(layout)) {
+      return false;
+    }
+    const front = layout.front;
+    const back = layout.back;
+    return this.isPlainObject(front) && this.isPlainObject(back);
+  }
+
+  async getCarteiraLayout(): Promise<{ layout: Record<string, unknown> | null }> {
+    const filePath = this.getCarteiraLayoutFilePath();
+
+    try {
+      const raw = await fs.readFile(filePath, "utf8");
+      const parsed = JSON.parse(raw) as unknown;
+      if (!this.isValidCarteiraLayout(parsed)) {
+        return { layout: null };
+      }
+      return { layout: parsed as Record<string, unknown> };
+    } catch (error) {
+      const errorCode =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: string }).code ?? "")
+          : "";
+
+      if (errorCode === "ENOENT") {
+        return { layout: null };
+      }
+
+      const detail = error instanceof Error ? error.message : "falha desconhecida";
+      this.logger.error(`Falha ao carregar layout global da carteira: ${detail}`);
+      throw new InternalServerErrorException("Nao foi possivel carregar o layout global da carteira.");
+    }
+  }
+
+  async saveCarteiraLayout(payload: CarteiraLayoutPayload): Promise<{ success: true }> {
+    const candidate = payload.layout;
+    if (!this.isValidCarteiraLayout(candidate)) {
+      throw new BadRequestException("Layout da carteira invalido.");
+    }
+
+    const filePath = this.getCarteiraLayoutFilePath();
+    const folder = path.dirname(filePath);
+
+    try {
+      await fs.mkdir(folder, { recursive: true });
+      await fs.writeFile(filePath, JSON.stringify(candidate, null, 2), "utf8");
+      return { success: true };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "falha desconhecida";
+      this.logger.error(`Falha ao salvar layout global da carteira: ${detail}`);
+      throw new InternalServerErrorException("Nao foi possivel salvar o layout global da carteira.");
+    }
+  }
 
   private sanitizeCpf(cpf: string): string {
     return cpf.replace(/\D/g, "");
