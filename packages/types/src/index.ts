@@ -13,6 +13,7 @@ export interface AuthTokensResponse {
   isFiliadoAtivo: boolean;
   associado: string | null;
   modeloCarteira: string | null;
+  sugerirLgpd?: boolean;
 }
 
 export interface AuthSessionDebugResponse {

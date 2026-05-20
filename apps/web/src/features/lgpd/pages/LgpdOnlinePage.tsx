@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@sintese/ui";
 import { useAceitarLgpdMutation } from "../hooks/useAceitarLgpdMutation";
 import { useLgpdTermoQuery } from "../hooks/useLgpdTermoQuery";
 import { readAuthSession } from "../../auth/services/authSession";
 import { digitsOnly, formatCpf } from "../../../shared/utils/masks";
+import { TimedAlert } from "../../../shared/components/TimedAlert";
 
 const LGPD_SUCCESS_MESSAGE =
   "A aceitação dos termos da L.G.P.D já foi registrada com sucesso! Obrigado por sua conformidade!";
@@ -69,9 +70,13 @@ function sanitizeLgpdHtml(rawHtml: string): string {
 }
 
 export function LgpdOnlinePage() {
+  const location = useLocation();
   const session = readAuthSession();
   const cpf = useMemo(() => digitsOnly(session?.cpf ?? ""), [session?.cpf]);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [showLoginSuggestion, setShowLoginSuggestion] = useState<boolean>(
+    () => Boolean((location.state as { lgpdSuggestion?: boolean } | null)?.lgpdSuggestion)
+  );
   const [showInfoMessage, setShowInfoMessage] = useState(false);
   const [infoCountdownPercent, setInfoCountdownPercent] = useState(100);
 
@@ -138,6 +143,14 @@ export function LgpdOnlinePage() {
       {termoQuery.isError ? <div className="alert-error mb-3">Não foi possível carregar o termo da L.G.P.D.</div> : null}
       {aceitarMutation.isError ? (
         <div className="alert-error mb-3">Não foi possível registrar a aceitação do termo.</div>
+      ) : null}
+      {showLoginSuggestion ? (
+        <TimedAlert
+          className="alert-warning"
+          durationMs={5000}
+          message="Você ainda não aceitou os termos da LGPD. Aproveite para ler e aceitar agora."
+          onClose={() => setShowLoginSuggestion(false)}
+        />
       ) : null}
       {infoMessage && showInfoMessage ? (
         <div className="alert-success relative mb-3 overflow-hidden">

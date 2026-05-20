@@ -37,6 +37,11 @@ interface FiliacaoAtivaSnapshot {
   modeloCarteira: string | null;
 }
 
+interface PessoaLgpdRow {
+  CPF: string;
+  AUTORIZA_LGPD?: string | number | boolean | null;
+}
+
 @Injectable()
 export class AuthService {
   constructor(private readonly legacyDatabaseService: LegacyDatabaseService) {}
@@ -106,6 +111,35 @@ export class AuthService {
 
     const text = String(value).trim();
     return text.length > 0 ? text : null;
+  }
+
+  private toBoolean(value: PessoaLgpdRow["AUTORIZA_LGPD"]): boolean {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    const normalized = String(value ?? "").trim().toLowerCase();
+    return normalized === "1" || normalized === "true" || normalized === "s" || normalized === "sim";
+  }
+
+  private async shouldSuggestLgpd(cpfDigits: string): Promise<boolean> {
+    const rows = await this.legacyDatabaseService.query<PessoaLgpdRow>(
+      `
+      Select Top 1
+        CPF,
+        AUTORIZA_LGPD
+      From
+        PESSOAS
+      Where
+        CPF = @CPF
+      `,
+      { CPF: cpfDigits }
+    );
+
+    if (rows.length === 0) {
+      return false;
+    }
+
+    return !this.toBoolean(rows[0].AUTORIZA_LGPD);
   }
 
   private async getFiliacaoAtivaSnapshot(cpfDigits: string): Promise<FiliacaoAtivaSnapshot> {
@@ -259,6 +293,7 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
     }
 
     const filiacaoAtiva = await this.getFiliacaoAtivaSnapshot(cpfDigits);
+    const sugerirLgpd = await this.shouldSuggestLgpd(cpfDigits);
 
     return {
       cpf: cpfDigits,
@@ -267,7 +302,8 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
       expiresIn: 900,
       isFiliadoAtivo: filiacaoAtiva.isFiliadoAtivo,
       associado: filiacaoAtiva.associado,
-      modeloCarteira: filiacaoAtiva.modeloCarteira
+      modeloCarteira: filiacaoAtiva.modeloCarteira,
+      sugerirLgpd
     };
   }
 

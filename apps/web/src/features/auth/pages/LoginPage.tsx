@@ -71,7 +71,10 @@ export function LoginPage() {
             ...session,
             cpf: digitsOnly(cpf)
           });
-          navigate("/menu-principal", { replace: true });
+          navigate(session.sugerirLgpd ? "/lgpd-online" : "/menu-principal", {
+            replace: true,
+            state: session.sugerirLgpd ? { lgpdSuggestion: true } : undefined
+          });
         }
       }
     );
