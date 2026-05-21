@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
@@ -31,6 +31,16 @@ interface SindicatoMailSettingsRow {
   SENHA_EMAIL: string | null;
 }
 
+interface WhatsappTokenSettingsRow {
+  CNPJ?: string | null;
+  ENDPOINT_API?: string | null;
+  TOKEN_API?: string | null;
+  ATIVO?: string | number | boolean | null;
+  BOT?: string | null;
+  DEPARTAMENTO?: string | null;
+  PRINCIPAL?: string | number | boolean | null;
+}
+
 interface FiliacaoAtivaSnapshot {
   isFiliadoAtivo: boolean;
   associado: string | null;
@@ -44,6 +54,8 @@ interface PessoaLgpdRow {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(private readonly legacyDatabaseService: LegacyDatabaseService) {}
 
   private sanitizeCpf(cpf: string): string {
@@ -77,6 +89,17 @@ export class AuthService {
   private isAutenticacaoEnabled(value: SindicatoMailSettingsRow["AUTENTICACAO"]): boolean {
     if (typeof value === "boolean") {
       return value;
+    }
+    const normalized = String(value ?? "").trim().toLowerCase();
+    return normalized === "1" || normalized === "s" || normalized === "sim" || normalized === "true";
+  }
+
+  private isFlagEnabled(value: string | number | boolean | null | undefined): boolean {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "number") {
+      return value === 1;
     }
     const normalized = String(value ?? "").trim().toLowerCase();
     return normalized === "1" || normalized === "s" || normalized === "sim" || normalized === "true";
@@ -175,6 +198,53 @@ export class AuthService {
     return `***.${cpfDigits.slice(3, 6)}.${cpfDigits.slice(6, 9)}-**`;
   }
 
+  private maskCpfForWhatsapp(cpfDigits: string): string {
+    if (cpfDigits.length !== 11) {
+      return cpfDigits;
+    }
+    return `XXX.${cpfDigits.slice(3, 6)}.${cpfDigits.slice(6, 9)}-XX`;
+  }
+
+  private normalizeWhatsappNumberForApi(phoneDigits: string): string {
+    const digits = phoneDigits.replace(/\D/g, "");
+    if (digits.startsWith("55")) {
+      return digits;
+    }
+    if (digits.length === 10 || digits.length === 11) {
+      return `55${digits}`;
+    }
+    return digits;
+  }
+
+  private resolveWhatsappEndpointHost(endpoint: string): string {
+    try {
+      const parsed = new URL(endpoint);
+      return parsed.host;
+    } catch {
+      return endpoint;
+    }
+  }
+
+  private logWhatsappRecoveredPasswordAudit(payload: {
+    cpf: string;
+    number: string;
+    endpoint: string;
+    event: "attempt" | "success" | "error";
+    detail?: string;
+  }): void {
+    const maskedCpf = this.maskCpfForWhatsapp(payload.cpf);
+    const maskedNumber = payload.number.length >= 4 ? `***${payload.number.slice(-4)}` : "***";
+    const endpointHost = this.resolveWhatsappEndpointHost(payload.endpoint);
+    const baseMessage = `[AUDIT][WHATSAPP_RECOVER_PASSWORD] event=${payload.event} cpf=${maskedCpf} number=${maskedNumber} endpoint=${endpointHost}`;
+
+    if (payload.event === "error") {
+      this.logger.error(`${baseMessage}${payload.detail ? ` detail=${payload.detail}` : ""}`);
+      return;
+    }
+
+    this.logger.log(`${baseMessage}${payload.detail ? ` detail=${payload.detail}` : ""}`);
+  }
+
   private async getSindicatoMailSettings(): Promise<SindicatoMailSettingsRow> {
     const rows = await this.legacyDatabaseService.query<SindicatoMailSettingsRow>(`
       Select Top 1
@@ -194,6 +264,45 @@ export class AuthService {
     }
 
     return rows[0];
+  }
+
+  private async getWhatsappBotSettings(): Promise<WhatsappTokenSettingsRow> {
+    const rows = await this.legacyDatabaseService.query<WhatsappTokenSettingsRow>(
+      `
+      Select
+        SINDICATO.CNPJ,
+        TOKENS_WHATSAPP.ENDPOINT_API,
+        TOKENS_WHATSAPP.TOKEN_API,
+        TOKENS_WHATSAPP.ATIVO,
+        TOKENS_WHATSAPP.BOT,
+        TOKENS_WHATSAPP.DEPARTAMENTO,
+        TOKENS_WHATSAPP.PRINCIPAL
+      From
+        SINDICATO
+        Left Join
+        TOKENS_WHATSAPP On SINDICATO.CNPJ = TOKENS_WHATSAPP.CNPJ_SINDICATO
+      Where
+        TOKENS_WHATSAPP.DEPARTAMENTO = 'BOT MENSAGENS'
+      `
+    );
+
+    const activeRows = rows.filter((row) => this.isFlagEnabled(row.ATIVO));
+    const source = activeRows.length > 0 ? activeRows : rows;
+    const ordered = [...source].sort((a, b) => {
+      const aPrincipal = this.isFlagEnabled(a.PRINCIPAL) ? 1 : 0;
+      const bPrincipal = this.isFlagEnabled(b.PRINCIPAL) ? 1 : 0;
+      return bPrincipal - aPrincipal;
+    });
+
+    const settings = ordered[0];
+    const endpoint = settings?.ENDPOINT_API?.trim() ?? "";
+    const token = settings?.TOKEN_API?.trim() ?? "";
+
+    if (!settings || !endpoint || !token) {
+      throw new InternalServerErrorException("Configuracao do WhatsApp nao encontrada.");
+    }
+
+    return settings;
   }
 
   private async sendRecoveredPasswordEmail(payload: { to: string; cpf: string; password: string }) {
@@ -255,6 +364,78 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
       subject: "Portal do Filiad@ | Sua nova senha de acesso",
       text,
       html
+    });
+  }
+
+  private async sendRecoveredPasswordWhatsapp(payload: {
+    cpf: string;
+    whatsapp: string;
+    password: string;
+  }): Promise<void> {
+    const settings = await this.getWhatsappBotSettings();
+    const endpoint = settings.ENDPOINT_API?.trim() || "https://api.conversafacil.com/api/messages/send";
+    const token = settings.TOKEN_API?.trim() ?? "";
+    const number = this.normalizeWhatsappNumberForApi(payload.whatsapp);
+
+    if (!number) {
+      throw new BadRequestException("Numero de WhatsApp invalido para envio da senha.");
+    }
+
+    const body = [
+      `Sr(a).: ${this.maskCpfForWhatsapp(payload.cpf)}`,
+      `Segue conforme solicitado sua nova senha de acesso ao portal do(a) filiado(a): ${payload.password}`,
+      "Por favor, altere a senha assim que possivel para garantir a seguranca do seu acesso."
+    ].join("\n");
+
+    this.logWhatsappRecoveredPasswordAudit({
+      cpf: payload.cpf,
+      number,
+      endpoint,
+      event: "attempt"
+    });
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          number,
+          body
+        })
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "falha desconhecida";
+      this.logWhatsappRecoveredPasswordAudit({
+        cpf: payload.cpf,
+        number,
+        endpoint,
+        event: "error",
+        detail
+      });
+      throw new InternalServerErrorException("Nao foi possivel enviar a nova senha via WhatsApp.");
+    }
+
+    if (!response.ok) {
+      this.logWhatsappRecoveredPasswordAudit({
+        cpf: payload.cpf,
+        number,
+        endpoint,
+        event: "error",
+        detail: `status=${response.status}`
+      });
+      throw new InternalServerErrorException("Nao foi possivel enviar a nova senha via WhatsApp.");
+    }
+
+    this.logWhatsappRecoveredPasswordAudit({
+      cpf: payload.cpf,
+      number,
+      endpoint,
+      event: "success",
+      detail: `status=${response.status}`
     });
   }
 
@@ -407,12 +588,20 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
       });
     }
 
+    if (payload.preferredChannel === "whatsapp" && dbWhatsapp) {
+      await this.sendRecoveredPasswordWhatsapp({
+        cpf: cpfDigits,
+        whatsapp: dbWhatsapp,
+        password: newPassword
+      });
+    }
+
     return {
       success: true,
       message:
         payload.preferredChannel === "email"
           ? "Senha redefinida com sucesso. Enviamos a nova senha para o e-mail cadastrado."
-          : "Senha redefinida com sucesso."
+          : "Senha redefinida com sucesso. Enviamos a nova senha para o WhatsApp cadastrado."
     };
   }
 
