@@ -13,6 +13,12 @@ class CarteiraService {
     return apiRequest<CarteiraResponse>(`/users/carteira?${query}`);
   }
 
+  async getCarteiraPreview(cpf: string): Promise<CarteiraResponse> {
+    const cpfDigits = normalizeCpf(cpf);
+    const query = new URLSearchParams({ cpf: cpfDigits }).toString();
+    return apiRequest<CarteiraResponse>(`/users/carteira-preview?${query}`);
+  }
+
   async getCarteiraLayout(): Promise<Partial<CarteiraLayoutConfig> | null> {
     const response = await apiRequest<{ layout: Partial<CarteiraLayoutConfig> | null }>("/users/carteira-layout");
     return response.layout ?? null;

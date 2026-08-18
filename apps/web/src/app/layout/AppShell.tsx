@@ -7,12 +7,7 @@ interface AppShellProps {
 }
 
 const navItems = [
-  { to: "/menu-principal", label: "Menu Principal" },
-  { to: "/login", label: "Login" },
-  { to: "/cadastro", label: "Cadastro" },
-  { to: "/recuperar-senha", label: "Recuperar Senha" },
-  { to: "/convenios", label: "Convênios" },
-  { to: "/parceiros", label: "Parceiros" }
+  { to: "/menu-principal", label: "Voltar para o menu principal" }
 ];
 
 export function AppShell({ children }: AppShellProps) {

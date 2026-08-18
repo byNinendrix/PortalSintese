@@ -58,6 +58,11 @@ export class UsersController {
     return this.usersService.prepareCarteiraByCpf(cpf);
   }
 
+  @Get("carteira-preview")
+  getCarteiraPreview(@Query("cpf") cpf?: string) {
+    return this.usersService.getCarteiraPreview(cpf);
+  }
+
   @Get("carteira-layout")
   getCarteiraLayout() {
     return this.usersService.getCarteiraLayout();

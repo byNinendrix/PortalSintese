@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@sintese/ui";
+import type { CarteiraResponse } from "@sintese/types";
 import type { CarteiraLayoutConfig, CarteiraLayoutField, CarteiraSide } from "../layout/carteiraLayout";
 import { DEFAULT_CARTEIRA_LAYOUT, loadCarteiraLayout, normalizeCarteiraLayout, saveCarteiraLayout } from "../layout/carteiraLayout";
 import { readAuthSession } from "../../auth/services/authSession";
-import { digitsOnly } from "../../../shared/utils/masks";
-import { useCarteiraQuery } from "../hooks/useCarteiraQuery";
+import { digitsOnly, formatCpf } from "../../../shared/utils/masks";
 import { CarteiraPreview } from "../components/CarteiraPreview";
 import { carteiraService } from "../../menu/services/carteira.service";
 
@@ -63,10 +64,44 @@ function setField(layout: CarteiraLayoutConfig, path: FieldPath, value: Carteira
   });
 }
 
+function buildPreviewCarteira(cpfDigits: string): CarteiraResponse {
+  const cpf = cpfDigits.length === 11 ? cpfDigits : "00000000000";
+  const validade = new Date();
+  validade.setFullYear(validade.getFullYear() + 2);
+
+  return {
+    cpf,
+    url: "https://sintese.org.br/carteira/preview",
+    qrCodeCarteira: null,
+    qrCodeFoiGerado: false,
+    carteiraVencida: false,
+    dataEmissaoCarteira: new Date().toISOString(),
+    dataValidadeCarteira: validade.toISOString(),
+    anosValidadeCarteira: 2,
+    nome: "FILIADO(A) SINTESE",
+    cpfExtenso: `CPF: ${formatCpf(cpf)}`,
+    cidadeCarteirinha: "ARACAJU/SE",
+    sangueTpRh: "O+",
+    fotoImg: null,
+    sindicato: {
+      imgCartFrente: null,
+      imgCartVerso: null
+    }
+  };
+}
+
 export function CarteiraLayoutConfigPage() {
   const session = readAuthSession();
   const cpfDigits = useMemo(() => digitsOnly(session?.cpf ?? ""), [session?.cpf]);
-  const query = useCarteiraQuery(cpfDigits, Boolean(cpfDigits));
+  const fallbackCarteiraPreview = useMemo(() => buildPreviewCarteira(cpfDigits), [cpfDigits]);
+  const previewQuery = useQuery({
+    queryKey: ["carteira-preview", cpfDigits],
+    queryFn: () => carteiraService.getCarteiraPreview(cpfDigits),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5
+  });
+  const carteiraPreview = previewQuery.data ?? fallbackCarteiraPreview;
 
   const [layout, setLayout] = useState<CarteiraLayoutConfig>(() => loadCarteiraLayout());
   const [selected, setSelected] = useState<FieldPath>("front.nome");
@@ -196,14 +231,14 @@ export function CarteiraLayoutConfigPage() {
       </div>
 
       {notice ? <div className="alert-success mb-3">{notice}</div> : null}
-      {query.isError ? <div className="alert-error mb-3">Não foi possível carregar os dados de pré-visualização da carteira.</div> : null}
-      {query.isLoading ? <div className="carteira-loading">Carregando preview...</div> : null}
+      {previewQuery.isError ? <div className="alert-error mb-3">Nao foi possivel carregar as imagens reais da carteira. O preview local foi mantido.</div> : null}
+      {previewQuery.isLoading ? <div className="carteira-loading">Carregando imagens da carteira...</div> : null}
 
-      {query.data ? (
+      {(
         <div className="carteira-editor-grid">
           <div className="surface-card p-4">
             <CarteiraPreview
-              carteira={query.data}
+              carteira={carteiraPreview}
               layout={layout}
               className="carteira-sheet carteira-sheet-editor"
               editable
@@ -273,7 +308,7 @@ export function CarteiraLayoutConfigPage() {
             </div>
           </aside>
         </div>
-      ) : null}
+      )}
     </section>
   );
 }

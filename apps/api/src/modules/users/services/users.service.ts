@@ -540,6 +540,59 @@ export class UsersService {
     }
   }
 
+  async getCarteiraPreview(cpf?: string) {
+    const cpfDigits = this.sanitizeCpf(cpf ?? "");
+    const previewCpf = cpfDigits.length === 11 ? cpfDigits : "00000000000";
+    const dataEmissao = new Date();
+    const dataValidade = new Date(dataEmissao);
+    dataValidade.setFullYear(dataValidade.getFullYear() + 2);
+
+    try {
+      const sindicatoRows = await this.legacyDatabaseService.query<SindicatoCarteiraRow>(
+        `
+        Select Top 1
+          SINDICATO.URL,
+          SINDICATO.IMG_CART_F_M,
+          SINDICATO.IMG_CART_V_M
+        From
+          SINDICATO
+        `
+      );
+
+      if (sindicatoRows.length === 0) {
+        throw new BadRequestException("Configuracao da carteira nao encontrada.");
+      }
+
+      const sindicato = sindicatoRows[0];
+      return {
+        cpf: this.maskCpf(previewCpf),
+        url: this.normalizeScalar(sindicato.URL) ?? "https://sintese.org.br/carteira/preview",
+        qrCodeCarteira: null,
+        qrCodeFoiGerado: false,
+        carteiraVencida: false,
+        dataEmissaoCarteira: dataEmissao.toISOString(),
+        dataValidadeCarteira: dataValidade.toISOString(),
+        anosValidadeCarteira: 2,
+        nome: "FILIADO(A) SINTESE",
+        cpfExtenso: `CPF: ${this.maskCpf(previewCpf)}`,
+        cidadeCarteirinha: "ARACAJU/SE",
+        sangueTpRh: "O+",
+        fotoImg: null,
+        sindicato: {
+          imgCartFrente: this.toFotoDataUrl(sindicato.IMG_CART_F_M),
+          imgCartVerso: this.toFotoDataUrl(sindicato.IMG_CART_V_M)
+        }
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      const detail = error instanceof Error ? error.message : "Falha desconhecida ao carregar preview.";
+      this.logger.error(`Erro ao carregar preview da carteira: ${detail}`);
+      throw new BadRequestException(`Falha ao carregar preview da carteira: ${detail}`);
+    }
+  }
+
   private sanitizeCpf(cpf: string): string {
     return cpf.replace(/\D/g, "");
   }
