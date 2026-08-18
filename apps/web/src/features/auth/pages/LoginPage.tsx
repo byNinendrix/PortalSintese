@@ -1,6 +1,8 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@sintese/ui";
+import { loadCarteiraLayout, normalizeCarteiraLayout, saveCarteiraLayout } from "../../carteira/layout/carteiraLayout";
+import { carteiraService } from "../../menu/services/carteira.service";
 import { digitsOnly, formatCpf } from "../../../shared/utils/masks";
 import { useLoginMutation } from "../hooks/useAuthMutations";
 import { saveAuthSession } from "../services/authSession";
@@ -15,6 +17,9 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
+  const [exibirBotaoCongressista, setExibirBotaoCongressista] = useState(
+    () => loadCarteiraLayout().exibirBotaoCongressista
+  );
   const cpfInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -32,6 +37,35 @@ export function LoginPage() {
     }
     return new Intl.DateTimeFormat("pt-BR").format(parsed);
   })();
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadLoginSettings() {
+      try {
+        const remoteLayout = await carteiraService.getCarteiraLayout();
+        if (!mounted || !remoteLayout) {
+          return;
+        }
+        const normalized = normalizeCarteiraLayout(remoteLayout);
+        saveCarteiraLayout(normalized);
+        setExibirBotaoCongressista(normalized.exibirBotaoCongressista);
+      } catch {
+        if (mounted) {
+          setExibirBotaoCongressista(loadCarteiraLayout().exibirBotaoCongressista);
+        }
+      }
+    }
+
+    void loadLoginSettings();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  function onCongressistaClick() {
+    navigate("/congressista");
+  }
 
   function validateForm(): boolean {
     const nextErrors: LoginErrors = {};
@@ -238,6 +272,11 @@ export function LoginPage() {
             Jogo da Corujinha
           </Button>
         </Link>
+        {exibirBotaoCongressista ? (
+          <Button type="button" className="btn-modern-primary w-full" onClick={onCongressistaClick}>
+            Congressista
+          </Button>
+        ) : null}
       </div>
 
       <div className="mt-10 flex justify-center">

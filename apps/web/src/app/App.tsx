@@ -9,6 +9,7 @@ import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { SessionDebugPage } from "../features/auth/pages/SessionDebugPage";
 import { AUTH_SESSION_CHANGED_EVENT, clearAuthSession, hasAuthSession } from "../features/auth/services/authSession";
 import { ConveniosPage } from "../features/convenios/pages/ConveniosPage";
+import { CongressistaPage } from "../features/congressista/pages/CongressistaPage";
 import { CarteiraPage } from "../features/carteira/pages/CarteiraPage";
 import { CarteiraLayoutConfigPage } from "../features/carteira/pages/CarteiraLayoutConfigPage";
 import { FichaCadastralPage } from "../features/ficha-cadastral/pages/FichaCadastralPage";
@@ -55,7 +56,7 @@ export function App() {
       return;
     }
 
-    const publicPaths = new Set(["/login", "/cadastro", "/recuperar-senha", "/jogo-corujinha"]);
+    const publicPaths = new Set(["/login", "/cadastro", "/recuperar-senha", "/jogo-corujinha", "/congressista"]);
     if (publicPaths.has(location.pathname)) {
       return;
     }
@@ -165,6 +166,7 @@ export function App() {
         <Route path="/cadastro" element={<RegisterPage />} />
         <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
         <Route path="/jogo-corujinha" element={<JogoCorujinhaPage />} />
+        <Route path="/congressista" element={<CongressistaPage />} />
         <Route path="/convenios" element={<ConveniosPage />} />
         <Route path="/parceiros" element={<ParceirosPage />} />
       </Routes>

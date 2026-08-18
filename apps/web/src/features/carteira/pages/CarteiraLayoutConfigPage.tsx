@@ -64,6 +64,13 @@ function setField(layout: CarteiraLayoutConfig, path: FieldPath, value: Carteira
   });
 }
 
+function setExibirBotaoCongressista(layout: CarteiraLayoutConfig, value: boolean): CarteiraLayoutConfig {
+  return normalizeCarteiraLayout({
+    ...layout,
+    exibirBotaoCongressista: value
+  });
+}
+
 function buildPreviewCarteira(cpfDigits: string): CarteiraResponse {
   const cpf = cpfDigits.length === 11 ? cpfDigits : "00000000000";
   const validade = new Date();
@@ -113,6 +120,10 @@ export function CarteiraLayoutConfigPage() {
 
   function updateCurrentField(patch: Partial<CarteiraLayoutField>) {
     setLayout((prev) => setField(prev, selected, { ...getField(prev, selected), ...patch }));
+  }
+
+  function updateExibirBotaoCongressista(value: boolean) {
+    setLayout((prev) => setExibirBotaoCongressista(prev, value));
   }
 
   function handleFieldMouseDown(side: CarteiraSide, fieldId: string, event: ReactMouseEvent<HTMLDivElement>) {
@@ -249,6 +260,16 @@ export function CarteiraLayoutConfigPage() {
           </div>
 
           <aside className="surface-card p-4">
+            <label className="mb-4 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={layout.exibirBotaoCongressista}
+                onChange={(e) => updateExibirBotaoCongressista(e.target.checked)}
+              />
+              Exibir botão Congressista na tela de login
+            </label>
+
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-700">Campos</h2>
             <div className="space-y-2">
               {FIELD_OPTIONS.map((item) => (

@@ -7,7 +7,7 @@ interface AppShellProps {
 }
 
 const navItems = [
-  { to: "/menu-principal", label: "Voltar para o menu principal" }
+  { to: "/menu-principal", label: "Voltar para o menu principal" },
 ];
 
 export function AppShell({ children }: AppShellProps) {
@@ -31,8 +31,10 @@ export function AppShell({ children }: AppShellProps) {
     pathname === "/cadastro" ||
     pathname === "/recuperar-senha" ||
     pathname === "/convenios" ||
+    pathname === "/congressista" ||
     pathname === "/jogo-corujinha";
-  const isWideLegacyView = pathname === "/protocolo-relatorio" || pathname === "/jogo-corujinha";
+  const isWideLegacyView =
+    pathname === "/protocolo-relatorio" || pathname === "/jogo-corujinha";
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -57,7 +59,11 @@ export function AppShell({ children }: AppShellProps) {
   if (isLegacyLoginView) {
     return (
       <div className="auth-page-bg px-4 py-6 sm:px-6">
-        <main className={`mx-auto w-full pt-8 sm:pt-10 ${isWideLegacyView ? "max-w-[980px]" : "max-w-md"}`}>{children}</main>
+        <main
+          className={`mx-auto w-full pt-8 sm:pt-10 ${isWideLegacyView ? "max-w-[980px]" : "max-w-md"}`}
+        >
+          {children}
+        </main>
       </div>
     );
   }
@@ -65,10 +71,15 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc,#eef2ff)]">
       <aside className="fixed left-0 top-0 hidden h-screen w-72 border-r border-slate-200/80 bg-white/90 p-4 backdrop-blur lg:block">
-        <Link to="/menu-principal" className="block text-lg font-extrabold text-slate-900">
+        <Link
+          to="/menu-principal"
+          className="block text-lg font-extrabold text-slate-900"
+        >
           Portal SINTESE
         </Link>
-        <p className="mt-1 text-xs uppercase tracking-wider text-slate-500">Plataforma modernizada</p>
+        <p className="mt-1 text-xs uppercase tracking-wider text-slate-500">
+          Plataforma modernizada
+        </p>
         <nav className="mt-6 space-y-2">
           {navItems.map((item) => (
             <NavLink
@@ -76,7 +87,9 @@ export function AppShell({ children }: AppShellProps) {
               to={item.to}
               className={({ isActive }) =>
                 `block rounded-xl px-3 py-2 text-sm font-semibold transition duration-200 ${
-                  isActive ? "bg-sky-100 text-sky-900" : "text-slate-600 hover:bg-slate-100"
+                  isActive
+                    ? "bg-sky-100 text-sky-900"
+                    : "text-slate-600 hover:bg-slate-100"
                 }`
               }
             >
@@ -102,8 +115,13 @@ export function AppShell({ children }: AppShellProps) {
           />
           <aside className="relative h-full w-72 bg-white p-4">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-lg font-extrabold text-slate-900">Navegação</span>
-              <Button variant="ghost" onClick={() => setIsMobileMenuOpen(false)}>
+              <span className="text-lg font-extrabold text-slate-900">
+                Navegação
+              </span>
+              <Button
+                variant="ghost"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
                 Fechar
               </Button>
             </div>
@@ -115,7 +133,9 @@ export function AppShell({ children }: AppShellProps) {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={({ isActive }) =>
                     `block rounded-xl px-3 py-2 text-sm font-semibold transition duration-200 ${
-                      isActive ? "bg-sky-100 text-sky-900" : "text-slate-600 hover:bg-slate-100"
+                      isActive
+                        ? "bg-sky-100 text-sky-900"
+                        : "text-slate-600 hover:bg-slate-100"
                     }`
                   }
                 >
@@ -133,4 +153,3 @@ export function AppShell({ children }: AppShellProps) {
     </div>
   );
 }
-
