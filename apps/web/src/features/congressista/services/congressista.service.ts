@@ -7,6 +7,7 @@ export interface CongressoAtivo {
   tema_geral: string | null;
   local: string | null;
   local_pre: string | null;
+  endereco?: string | null;
   data_inicio: string | null;
   data_fim: string | null;
   hora_inicio: string | null;
@@ -36,6 +37,7 @@ export interface CongressistaBasico {
   funcao: string | null;
   delegacao: string | null;
   plenaria: string | null;
+  tamanho_camisa?: string | null;
   dependentes?: Array<{
     id_congressista_dep: number | null;
     nome?: string | null;
@@ -69,7 +71,10 @@ export interface ConsultaCongressistaAtivo {
 
 export interface CongressistaService {
   getCongressoAtivo(): Promise<CongressoAtivo | null>;
-  consultarCongressistaAtivo(cpf: string): Promise<ConsultaCongressistaAtivo>;
+  consultarCongressistaAtivo(
+    cpf: string,
+    dataNascimento: string,
+  ): Promise<ConsultaCongressistaAtivo>;
 }
 
 class CongressistaServiceImpl implements CongressistaService {
@@ -77,10 +82,19 @@ class CongressistaServiceImpl implements CongressistaService {
     return apiRequest<CongressoAtivo | null>("/congressos/ativo");
   }
 
-  async consultarCongressistaAtivo(cpf: string): Promise<ConsultaCongressistaAtivo> {
-    const searchParams = new URLSearchParams({ cpf });
-    return apiRequest<ConsultaCongressistaAtivo>(`/congressos/ativo/congressista?${searchParams.toString()}`);
+  async consultarCongressistaAtivo(
+    cpf: string,
+    dataNascimento: string,
+  ): Promise<ConsultaCongressistaAtivo> {
+    return apiRequest<ConsultaCongressistaAtivo>(
+      "/congressos/ativo/congressista/consulta",
+      {
+        method: "POST",
+        body: JSON.stringify({ cpf, dataNascimento }),
+      },
+    );
   }
 }
 
-export const congressistaService: CongressistaService = new CongressistaServiceImpl();
+export const congressistaService: CongressistaService =
+  new CongressistaServiceImpl();

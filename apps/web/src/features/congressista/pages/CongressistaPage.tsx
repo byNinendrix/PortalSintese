@@ -6,7 +6,7 @@ import { digitsOnly, formatCpf } from "../../../shared/utils/masks";
 import {
   congressistaService,
   type CongressoAtivo,
-  type ConsultaCongressistaAtivo
+  type ConsultaCongressistaAtivo,
 } from "../services/congressista.service";
 
 type NoticeState = {
@@ -58,23 +58,82 @@ function formatTimeBr(value: string | null): string {
 
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   }).format(parsed);
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function formatBirthDateInput(value: string): string {
+  const digits = digitsOnly(value).slice(0, 8);
+  if (digits.length <= 2) {
+    return digits;
+  }
+  if (digits.length <= 4) {
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  }
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function parseBirthDateInput(value: string): string | null {
+  const digits = digitsOnly(value);
+  if (digits.length !== 8) {
+    return null;
+  }
+
+  const day = Number(digits.slice(0, 2));
+  const month = Number(digits.slice(2, 4));
+  const year = Number(digits.slice(4));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const today = new Date();
+  const todayUtc = Date.UTC(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    date.getTime() > todayUtc
+  ) {
+    return null;
+  }
+
+  return `${year.toString().padStart(4, "0")}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
+}
+
+function InfoRow({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-      <dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt>
+    <div
+      className={`rounded-xl border border-slate-200 bg-white px-3 py-2 ${className}`}
+    >
+      <dt className="text-xs font-semibold uppercase text-slate-500">
+        {label}
+      </dt>
       <dd className="mt-1 text-sm font-semibold text-slate-900">{value}</dd>
     </div>
   );
 }
 
-type DependentesCongressista = NonNullable<NonNullable<ConsultaCongressistaAtivo["congressista"]>["dependentes"]>;
+type DependentesCongressista = NonNullable<
+  NonNullable<ConsultaCongressistaAtivo["congressista"]>["dependentes"]
+>;
 type DependenteCongressista = DependentesCongressista[number];
 
-function BoolDescRow({ label, flag, descLabel, descValue }: {
+function BoolDescRow({
+  label,
+  flag,
+  descLabel,
+  descValue,
+}: {
   label: string;
   flag?: boolean;
   descLabel: string;
@@ -82,8 +141,12 @@ function BoolDescRow({ label, flag, descLabel, descValue }: {
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-      <dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt>
-      <dd className="mt-1 text-sm font-semibold text-slate-900">{flag ? "Sim" : "Não"}</dd>
+      <dt className="text-xs font-semibold uppercase text-slate-500">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm font-semibold text-slate-900">
+        {flag ? "Sim" : "Não"}
+      </dd>
       {flag ? (
         <div className="mt-1">
           <dt className="text-xs font-medium text-slate-500">{descLabel}</dt>
@@ -110,7 +173,11 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-function DependentesBlock({ dependentes }: { dependentes: DependenteCongressista[] }) {
+function DependentesBlock({
+  dependentes,
+}: {
+  dependentes: DependenteCongressista[];
+}) {
   const [aberto, setAberto] = useState(false);
   const quantidade = dependentes.length;
 
@@ -123,9 +190,13 @@ function DependentesBlock({ dependentes }: { dependentes: DependenteCongressista
         onClick={() => setAberto((prev) => !prev)}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase text-slate-500">Dependentes</p>
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            Dependentes
+          </p>
           <p className="mt-0.5 text-xs text-slate-400">
-            {quantidade > 0 ? "Clique para ver a lista" : "Nenhum dependente cadastrado"}
+            {quantidade > 0
+              ? "Clique para ver a lista"
+              : "Nenhum dependente cadastrado"}
           </p>
         </div>
         <span className="flex items-center gap-2">
@@ -145,15 +216,25 @@ function DependentesBlock({ dependentes }: { dependentes: DependenteCongressista
                   key={dependente.id_congressista_dep ?? index}
                   className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3"
                 >
-                  <p className="text-sm font-extrabold text-slate-900">{fallback(dependente.nome)}</p>
+                  <p className="text-sm font-extrabold text-slate-900">
+                    {fallback(dependente.nome)}
+                  </p>
                   <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <InfoRow label="Gênero" value={fallback(dependente.genero)} />
+                    <InfoRow
+                      label="Gênero"
+                      value={fallback(dependente.genero)}
+                    />
                     <InfoRow label="Idade" value={fallback(dependente.idade)} />
                     <InfoRow label="Faixa" value={fallback(dependente.faixa)} />
-                    <InfoRow label="Nascimento" value={fallback(dependente.nascimento_extenso)} />
+                    <InfoRow
+                      label="Nascimento"
+                      value={fallback(dependente.nascimento_extenso)}
+                    />
                   </dl>
                   <div className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                    <p className="text-xs font-semibold uppercase text-slate-500">Hospedagem</p>
+                    <p className="text-xs font-semibold uppercase text-slate-500">
+                      Hospedagem
+                    </p>
                     <p className="mt-1 text-sm font-semibold leading-snug text-slate-900">
                       {fallback(dependente.hospedagem?.descricao)}
                     </p>
@@ -192,7 +273,9 @@ function DependentesBlock({ dependentes }: { dependentes: DependenteCongressista
                   </dl>
                   {dependente.observacao ? (
                     <div className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                      <p className="text-xs font-semibold uppercase text-slate-500">Observação</p>
+                      <p className="text-xs font-semibold uppercase text-slate-500">
+                        Observação
+                      </p>
                       <p className="mt-1 text-sm text-slate-800 break-words whitespace-pre-wrap">
                         {dependente.observacao}
                       </p>
@@ -202,7 +285,9 @@ function DependentesBlock({ dependentes }: { dependentes: DependenteCongressista
               ))}
             </div>
           ) : (
-            <p className="text-sm font-semibold text-slate-900">Nenhum dependente cadastrado.</p>
+            <p className="text-sm font-semibold text-slate-900">
+              Nenhum dependente cadastrado.
+            </p>
           )}
         </div>
       ) : null}
@@ -219,8 +304,11 @@ export function CongressistaPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [cpfDigits, setCpfDigits] = useState("");
+  const [dataNascimentoInput, setDataNascimentoInput] = useState("");
   const [isConsulting, setIsConsulting] = useState(false);
-  const [consulta, setConsulta] = useState<ConsultaCongressistaAtivo | null>(null);
+  const [consulta, setConsulta] = useState<ConsultaCongressistaAtivo | null>(
+    null,
+  );
   const [notice, setNotice] = useState<NoticeState | null>(null);
 
   useEffect(() => {
@@ -258,7 +346,7 @@ export function CongressistaPage() {
       setConsulta(null);
       setNotice({
         className: "alert-warning",
-        message: "Informe o CPF do congressista para continuar."
+        message: "Informe o CPF do congressista para continuar.",
       });
       return;
     }
@@ -267,7 +355,18 @@ export function CongressistaPage() {
       setConsulta(null);
       setNotice({
         className: "alert-warning",
-        message: "O CPF deve conter 11 dígitos."
+        message: "O CPF deve conter 11 dígitos.",
+      });
+      return;
+    }
+
+    const dataNascimento = parseBirthDateInput(dataNascimentoInput);
+    if (!dataNascimento) {
+      setConsulta(null);
+      setNotice({
+        className: "alert-warning",
+        message:
+          "Informe uma data de nascimento válida, sem usar uma data futura.",
       });
       return;
     }
@@ -277,17 +376,23 @@ export function CongressistaPage() {
     setNotice(null);
 
     try {
-      const result = await congressistaService.consultarCongressistaAtivo(cpfDigits);
+      const result = await congressistaService.consultarCongressistaAtivo(
+        cpfDigits,
+        dataNascimento,
+      );
       setConsulta(result);
       setNotice({
         className: result.encontrado ? "alert-success" : "alert-warning",
-        message: result.mensagem
+        message: result.encontrado
+          ? result.mensagem
+          : "Não foi possível validar os dados informados.",
       });
     } catch {
       setConsulta(null);
       setNotice({
         className: "alert-error",
-        message: "Não foi possível consultar o congressista no momento. Tente novamente."
+        message:
+          "Não foi possível realizar a consulta no momento. Tente novamente mais tarde.",
       });
     } finally {
       setIsConsulting(false);
@@ -296,6 +401,22 @@ export function CongressistaPage() {
 
   return (
     <section className="auth-card-modern w-full">
+      <style>{`
+        @keyframes congressista-carro-andando {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(6px); }
+        }
+
+        .congressista-carro-animado {
+          animation: congressista-carro-andando 1.2s ease-in-out infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .congressista-carro-animado {
+            animation: none;
+          }
+        }
+      `}</style>
       <div className="mb-4 flex justify-center px-3 sm:px-4">
         <img
           src="/logo-sintese-oficial.png"
@@ -307,14 +428,20 @@ export function CongressistaPage() {
 
       <h1 className="section-title mb-4">Congressista</h1>
 
-      {isLoading ? <LoadingSpinner label="Carregando congresso ativo..." /> : null}
+      {isLoading ? (
+        <LoadingSpinner label="Carregando congresso ativo..." />
+      ) : null}
 
       {hasError ? (
-        <div className="alert-error mb-3">Não foi possível carregar os dados do congresso ativo.</div>
+        <div className="alert-error mb-3">
+          Não foi possível carregar os dados do congresso ativo.
+        </div>
       ) : null}
 
       {!isLoading && !hasError && !congresso ? (
-        <div className="alert-info mb-3">Nenhum congresso ativo encontrado no momento.</div>
+        <div className="alert-info mb-3">
+          Nenhum congresso ativo encontrado no momento.
+        </div>
       ) : null}
 
       {congresso ? (
@@ -330,23 +457,68 @@ export function CongressistaPage() {
           ) : null}
 
           <div>
-            <p className="text-xs font-semibold uppercase text-slate-500">Congresso ativo</p>
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              Congresso ativo
+            </p>
             <h2 className="mt-1 text-lg font-extrabold leading-tight text-slate-900">
               {fallback(congresso.discriminacao)}
             </h2>
             {congresso.tema_geral ? (
-              <p className="mt-2 text-sm font-medium leading-snug text-slate-700">{congresso.tema_geral}</p>
+              <p className="mt-2 text-sm font-medium leading-snug text-slate-700">
+                {congresso.tema_geral}
+              </p>
             ) : null}
           </div>
 
           <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <InfoRow label="Ano" value={fallback(congresso.ano)} />
             <InfoRow label="Local" value={fallback(congresso.local)} />
-            <InfoRow label="Data de início" value={formatDateBr(congresso.data_inicio)} />
-            <InfoRow label="Data de fim" value={formatDateBr(congresso.data_fim)} />
-            <InfoRow label="Hora de início" value={formatTimeBr(congresso.hora_inicio)} />
-            <InfoRow label="Hora de fim" value={formatTimeBr(congresso.hora_fim)} />
+            <InfoRow
+              label="Endereço"
+              value={fallback(congresso.endereco)}
+              className="sm:col-span-2"
+            />
+            <InfoRow
+              label="Data de início"
+              value={formatDateBr(congresso.data_inicio)}
+            />
+            <InfoRow
+              label="Data de fim"
+              value={formatDateBr(congresso.data_fim)}
+            />
+            <InfoRow
+              label="Hora de início"
+              value={formatTimeBr(congresso.hora_inicio)}
+            />
+            <InfoRow
+              label="Hora de fim"
+              value={formatTimeBr(congresso.hora_fim)}
+            />
           </dl>
+          {congresso.endereco ? (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(congresso.endereco)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center rounded-xl bg-sky-600 px-4 py-3 text-sm font-extrabold text-white shadow-md transition duration-200 hover:scale-[1.01] hover:bg-sky-700 hover:shadow-lg active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-sky-300"
+            >
+              <span className="inline-flex items-center justify-center gap-2">
+                <span aria-hidden="true" className="congressista-carro-animado">
+                  🚗
+                </span>
+                <span>Como chegar ao local</span>
+              </span>
+            </a>
+          ) : null}
+          <a
+            href="https://sintese.org.br/xix-congresso/#tdi_104"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-200 bg-white px-4 py-3 text-sm font-extrabold text-sky-800 shadow-sm transition duration-200 hover:border-sky-300 hover:bg-sky-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-300"
+          >
+            <span aria-hidden="true">📅</span>
+            <span>Ver programação do congresso</span>
+          </a>
         </article>
       ) : null}
 
@@ -361,7 +533,10 @@ export function CongressistaPage() {
 
       <form className="space-y-3" onSubmit={onSubmit}>
         <div>
-          <label htmlFor="cpf-congressista" className="mb-1 block text-sm text-slate-900">
+          <label
+            htmlFor="cpf-congressista"
+            className="mb-1 block text-sm text-slate-900"
+          >
             CPF do congressista
           </label>
           <input
@@ -379,17 +554,48 @@ export function CongressistaPage() {
           />
         </div>
 
-        <Button type="submit" className="btn-modern-primary w-full" isLoading={isConsulting} disabled={isConsulting}>
+        <div>
+          <label
+            htmlFor="data-nascimento-congressista"
+            className="mb-1 block text-sm text-slate-900"
+          >
+            Data de nascimento
+          </label>
+          <input
+            id="data-nascimento-congressista"
+            value={dataNascimentoInput}
+            onChange={(event) => {
+              setDataNascimentoInput(formatBirthDateInput(event.target.value));
+              setConsulta(null);
+              setNotice(null);
+            }}
+            inputMode="numeric"
+            autoComplete="bday"
+            placeholder="DD/MM/AAAA"
+            maxLength={10}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-lg text-slate-700 outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100 sm:text-xl"
+          />
+        </div>
+
+        <Button
+          type="submit"
+          className="btn-modern-primary w-full"
+          isLoading={isConsulting}
+          disabled={isConsulting}
+        >
           Consultar dados do congressista
         </Button>
 
         {consulta?.encontrado && consulta.congressista ? (
           <div className="surface-card space-y-3 p-4">
-            <p className="text-sm font-bold text-emerald-700">Congressista localizado para este congresso.</p>
+            <p className="text-sm font-bold text-emerald-700">
+              Congressista localizado para este congresso.
+            </p>
             {consulta.congressista.desistiu ? (
               <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950">
                 <p className="text-sm font-extrabold">
-                  ATEN&Ccedil;&Atilde;O: este cadastro de congressista est&aacute; marcado como desistente.
+                  ATEN&Ccedil;&Atilde;O: este cadastro de congressista
+                  est&aacute; marcado como desistente.
                 </p>
                 <p className="mt-1 text-xs font-semibold">
                   Os dados permanecem dispon&iacute;veis apenas para consulta.
@@ -397,33 +603,69 @@ export function CongressistaPage() {
               </div>
             ) : null}
             <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
-              <p className="text-xs font-semibold uppercase text-emerald-700">Nome</p>
+              <p className="text-xs font-semibold uppercase text-emerald-700">
+                Nome
+              </p>
               <p className="mt-1 text-base font-extrabold text-slate-900">
                 {fallback(consulta.congressista.nome)}
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <p className="text-xs font-semibold uppercase text-slate-500">Grupo de estudo</p>
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                Grupo de estudo
+              </p>
               <p className="mt-1 text-sm font-semibold leading-snug text-slate-900">
                 {fallback(consulta.congressista.grupo_estudo?.descricao)}
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <p className="text-xs font-semibold uppercase text-slate-500">Hospedagem</p>
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                Hospedagem
+              </p>
               <p className="mt-1 text-sm font-semibold leading-snug text-slate-900">
                 {fallback(consulta.congressista.hospedagem?.descricao)}
               </p>
             </div>
-            <DependentesBlock dependentes={consulta.congressista.dependentes ?? []} />
+            <DependentesBlock
+              dependentes={consulta.congressista.dependentes ?? []}
+            />
             <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <InfoRow label="Gênero" value={fallback(consulta.congressista.sexo)} />
-              <InfoRow label="Função" value={fallback(consulta.congressista.funcao)} />
-              <InfoRow label="Delegação" value={fallback(consulta.congressista.delegacao)} />
-              <InfoRow label="Plenária" value={fallback(consulta.congressista.plenaria)} />
-              <InfoRow label="Solicitou creche" value={yesNo(consulta.congressista.creche)} />
-              <InfoRow label="Desistiu" value={yesNo(consulta.congressista.desistiu)} />
-              <InfoRow label="Credenciado" value={yesNo(consulta.congressista.credenciado)} />
-              <InfoRow label="Solicitou transporte" value={yesNo(consulta.congressista.transporte)} />
+              <InfoRow
+                label="Gênero"
+                value={fallback(consulta.congressista.sexo)}
+              />
+              <InfoRow
+                label="Função"
+                value={fallback(consulta.congressista.funcao)}
+              />
+              <InfoRow
+                label="Delegação"
+                value={fallback(consulta.congressista.delegacao)}
+              />
+              <InfoRow
+                label="Plenária"
+                value={fallback(consulta.congressista.plenaria)}
+              />
+              <InfoRow
+                label="Tamanho da camisa"
+                value={fallback(consulta.congressista.tamanho_camisa)}
+              />
+              <InfoRow
+                label="Solicitou creche"
+                value={yesNo(consulta.congressista.creche)}
+              />
+              <InfoRow
+                label="Desistiu"
+                value={yesNo(consulta.congressista.desistiu)}
+              />
+              <InfoRow
+                label="Credenciado"
+                value={yesNo(consulta.congressista.credenciado)}
+              />
+              <InfoRow
+                label="Solicitou transporte"
+                value={yesNo(consulta.congressista.transporte)}
+              />
             </dl>
           </div>
         ) : null}

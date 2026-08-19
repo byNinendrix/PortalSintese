@@ -1,5 +1,10 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
+import { ConsultaCongressistaDto } from "../dto/consulta-congressista.dto";
 
 interface CongressoAtivoRow {
   ID_CONGRESSO: number | null;
@@ -13,6 +18,7 @@ interface CongressoAtivoRow {
   TEMA_GERAL: string | null;
   LOGO: unknown;
   LOCAL_PRE: string | null;
+  ENDERECO: string | null;
 }
 
 interface CongressoAtivoIdRow {
@@ -30,6 +36,7 @@ interface CongressoCongressistaRow {
   FUNCAO: string | null;
   DELEGACAO: string | null;
   PLENARIA: string | null;
+  TAMANHO_CAMISA: string | null;
   NOME_CONGRESSISTA: string | null;
   SEXO_RAW: string | null;
   ID_CONG_GRUPO: number | null;
@@ -94,7 +101,12 @@ export class CongressosService {
       return true;
     }
 
-    if (value === false || value === 0 || value === null || value === undefined) {
+    if (
+      value === false ||
+      value === 0 ||
+      value === null ||
+      value === undefined
+    ) {
       return false;
     }
 
@@ -105,7 +117,12 @@ export class CongressosService {
         .replace(/[\u0300-\u036f]/g, "")
         .toUpperCase();
 
-      return normalized === "1" || normalized === "S" || normalized === "SIM" || normalized === "TRUE";
+      return (
+        normalized === "1" ||
+        normalized === "S" ||
+        normalized === "SIM" ||
+        normalized === "TRUE"
+      );
     }
 
     return false;
@@ -153,7 +170,12 @@ export class CongressosService {
       return "image/png";
     }
 
-    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    if (
+      bytes.length >= 3 &&
+      bytes[0] === 0xff &&
+      bytes[1] === 0xd8 &&
+      bytes[2] === 0xff
+    ) {
       return "image/jpeg";
     }
 
@@ -176,13 +198,17 @@ export class CongressosService {
     if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
       const bytes = Buffer.from(value);
       const mimeType = this.getImageMimeType(bytes);
-      return mimeType ? `data:${mimeType};base64,${bytes.toString("base64")}` : null;
+      return mimeType
+        ? `data:${mimeType};base64,${bytes.toString("base64")}`
+        : null;
     }
 
     if (value instanceof ArrayBuffer) {
       const bytes = Buffer.from(value);
       const mimeType = this.getImageMimeType(bytes);
-      return mimeType ? `data:${mimeType};base64,${bytes.toString("base64")}` : null;
+      return mimeType
+        ? `data:${mimeType};base64,${bytes.toString("base64")}`
+        : null;
     }
 
     if (typeof value !== "string") {
@@ -233,7 +259,8 @@ export class CongressosService {
             HORA_FIM,
             TEMA_GERAL,
             LOGO,
-            LOCAL_PRE
+            LOCAL_PRE,
+            ENDERECO
       FROM SINTESE.dbo.CONGRESSO
       WHERE CONCLUIDO = 0
       ORDER BY ID_CONGRESSO DESC
@@ -251,12 +278,27 @@ export class CongressosService {
       tema_geral: this.toText(row.TEMA_GERAL),
       local: this.toText(row.LOCAL),
       local_pre: this.toText(row.LOCAL_PRE),
+      endereco: this.toText(row.ENDERECO),
       data_inicio: this.toSerializableDateTime(row.DATA_INICIO),
       data_fim: this.toSerializableDateTime(row.DATA_FIM),
       hora_inicio: this.toSerializableDateTime(row.HORA_INICIO),
       hora_fim: this.toSerializableDateTime(row.HORA_FIM),
-      logo: this.normalizarLogoCongresso(row.LOGO)
+      logo: this.normalizarLogoCongresso(row.LOGO),
     };
+  }
+
+  private isIsoDate(value: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return false;
+    }
+
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return (
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day
+    );
   }
 
   async findCongressistaAtivo(cpf: string | undefined) {
@@ -270,18 +312,40 @@ export class CongressosService {
       throw new BadRequestException("CPF deve conter 11 dígitos.");
     }
 
+    return this.findCongressistaAtivoInternal(cpfDigits);
+  }
+
+  async findCongressistaAtivoSeguro(body: ConsultaCongressistaDto) {
+    const cpfDigits = this.digitsOnly(body.cpf);
+    const dataNascimento = body.dataNascimento?.trim() ?? "";
+
+    if (cpfDigits.length !== 11 || !this.isIsoDate(dataNascimento)) {
+      return {
+        encontrado: false,
+        mensagem: "Não foi possível validar os dados informados.",
+      };
+    }
+
+    return this.findCongressistaAtivoInternal(cpfDigits, dataNascimento);
+  }
+
+  private async findCongressistaAtivoInternal(
+    cpfDigits: string,
+    dataNascimento?: string,
+  ) {
     try {
       const idCongresso = await this.findCongressoAtivoId();
 
       if (!idCongresso) {
         return {
           encontrado: false,
-          mensagem: "Nenhum congresso ativo encontrado no momento."
+          mensagem: "Nenhum congresso ativo encontrado no momento.",
         };
       }
 
-      const rows = await this.legacyDatabaseService.query<CongressoCongressistaRow>(
-        `
+      const rows =
+        await this.legacyDatabaseService.query<CongressoCongressistaRow>(
+          `
         SELECT TOP 1
               CC.ID_CONGRESSISTA,
               CC.ID_CONGRESSO,
@@ -293,6 +357,7 @@ export class CongressosService {
               CC.FUNCAO,
               CC.DELEGACAO,
               CC.PLENARIA,
+              CC.TAMANHO_CAMISA,
               COALESCE(NULLIF(LTRIM(RTRIM(P.NOME_SOCIAL)), ''), P.NOME) AS NOME_CONGRESSISTA,
               P.SEXO AS SEXO_RAW,
               CC.ID_CONG_GRUPO,
@@ -363,19 +428,23 @@ export class CongressosService {
          AND VQH.ID_CONG_HOTEL_CAPA = HC.ID_CONG_HOTEL_CAPA
         WHERE CC.ID_CONGRESSO = @ID_CONGRESSO
           AND REPLACE(REPLACE(REPLACE(CC.CPF, '.', ''), '-', ''), ' ', '') = @CPF
+          AND (@DATA_NASCIMENTO IS NULL OR CONVERT(date, P.DATANASCIMENTO) = CONVERT(date, @DATA_NASCIMENTO))
         ORDER BY CC.ID_CONGRESSISTA DESC
         `,
-        {
-          ID_CONGRESSO: idCongresso,
-          CPF: cpfDigits
-        }
-      );
+          {
+            ID_CONGRESSO: idCongresso,
+            CPF: cpfDigits,
+            DATA_NASCIMENTO: dataNascimento ?? null,
+          },
+        );
 
       const row = rows[0];
       if (!row) {
         return {
           encontrado: false,
-          mensagem: "CPF não localizado como congressista neste congresso."
+          mensagem: dataNascimento
+            ? "Não foi possível validar os dados informados."
+            : "CPF não localizado como congressista neste congresso.",
         };
       }
 
@@ -449,8 +518,8 @@ export class CongressosService {
               `,
               {
                 ID_CONGRESSISTA: idCongressista,
-                ID_CONGRESSO: idCongressoRow
-              }
+                ID_CONGRESSO: idCongressoRow,
+              },
             )
           : [];
 
@@ -470,19 +539,25 @@ export class CongressosService {
           funcao: this.toText(row.FUNCAO),
           delegacao: this.toText(row.DELEGACAO),
           plenaria: this.toText(row.PLENARIA),
-          grupo_estudo: row.ID_CONG_GRUPO !== null && row.ID_CONG_GRUPO !== undefined
-            ? {
-                id_cong_grupo: this.toNumber(row.ID_CONG_GRUPO),
-                id_grupo: this.toNumber(row.ID_GRUPO),
-                descricao: this.toText(row.GRUPO_ESTUDO_DESCRICAO)
-              }
-            : null,
-          hospedagem: row.ID_CONG_HOTEL_CAPA_RESOLVIDO !== null && row.ID_CONG_HOTEL_CAPA_RESOLVIDO !== undefined
-            ? {
-                id_cong_hotel_capa: this.toNumber(row.ID_CONG_HOTEL_CAPA_RESOLVIDO),
-                descricao: this.toText(row.HOSPEDAGEM_DESCRICAO)
-              }
-            : null,
+          tamanho_camisa: this.toText(row.TAMANHO_CAMISA),
+          grupo_estudo:
+            row.ID_CONG_GRUPO !== null && row.ID_CONG_GRUPO !== undefined
+              ? {
+                  id_cong_grupo: this.toNumber(row.ID_CONG_GRUPO),
+                  id_grupo: this.toNumber(row.ID_GRUPO),
+                  descricao: this.toText(row.GRUPO_ESTUDO_DESCRICAO),
+                }
+              : null,
+          hospedagem:
+            row.ID_CONG_HOTEL_CAPA_RESOLVIDO !== null &&
+            row.ID_CONG_HOTEL_CAPA_RESOLVIDO !== undefined
+              ? {
+                  id_cong_hotel_capa: this.toNumber(
+                    row.ID_CONG_HOTEL_CAPA_RESOLVIDO,
+                  ),
+                  descricao: this.toText(row.HOSPEDAGEM_DESCRICAO),
+                }
+              : null,
           dependentes: dependentes.map((dependente) => ({
             id_congressista_dep: this.toNumber(dependente.ID_CONGRESSISTA_DEP),
             nome: this.toText(dependente.NOME),
@@ -491,14 +566,19 @@ export class CongressosService {
             faixa: this.toText(dependente.FAIXA),
             nascimento_extenso: this.toText(dependente.NASCIMENTO_EXTENSO),
             hospedagem:
-              dependente.ID_CONG_HOTEL_CAPA !== null && dependente.ID_CONG_HOTEL_CAPA !== undefined
+              dependente.ID_CONG_HOTEL_CAPA !== null &&
+              dependente.ID_CONG_HOTEL_CAPA !== undefined
                 ? {
-                    id_cong_hotel_capa: this.toNumber(dependente.ID_CONG_HOTEL_CAPA),
-                    descricao: this.toText(dependente.HOSPEDAGEM_DESCRICAO)
+                    id_cong_hotel_capa: this.toNumber(
+                      dependente.ID_CONG_HOTEL_CAPA,
+                    ),
+                    descricao: this.toText(dependente.HOSPEDAGEM_DESCRICAO),
                   }
                 : null,
             possui_deficiencia: this.toBoolean(dependente.POSSUI_DEFICIENCIA),
-            descricao_deficiencia: this.toText(dependente.DESCRICAO_DEFICIENCIA),
+            descricao_deficiencia: this.toText(
+              dependente.DESCRICAO_DEFICIENCIA,
+            ),
             problema_saude: this.toBoolean(dependente.PROBLEMA_SAUDE),
             descricao_saude: this.toText(dependente.DESCRICAO_SAUDE),
             restricao_alimentar: this.toBoolean(dependente.RESTRICAO_ALIMENTAR),
@@ -506,17 +586,21 @@ export class CongressosService {
             alergia: this.toBoolean(dependente.ALERGIA),
             descricao_alergia: this.toText(dependente.DESCRICAO_ALERGIA),
             utiliza_medicamento: this.toBoolean(dependente.UTILIZA_MEDICAMENTO),
-            descricao_medicamento: this.toText(dependente.DESCRICAO_MEDICAMENTO),
-            observacao: this.toText(dependente.OBSERVACAO)
-          }))
-        }
+            descricao_medicamento: this.toText(
+              dependente.DESCRICAO_MEDICAMENTO,
+            ),
+            observacao: this.toText(dependente.OBSERVACAO),
+          })),
+        },
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
 
-      throw new InternalServerErrorException("Não foi possível consultar o congressista no momento.");
+      throw new InternalServerErrorException(
+        "Não foi possível consultar o congressista no momento.",
+      );
     }
   }
 }
