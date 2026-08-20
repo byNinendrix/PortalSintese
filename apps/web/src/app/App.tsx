@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
+import { useGlobalClickAudit } from "../shared/hooks/useGlobalClickAudit";
 import { AtualizarMeusDadosPage } from "../features/atualizar-meus-dados/pages/AtualizarMeusDadosPage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
@@ -26,6 +27,7 @@ import { SolicitarFiliacaoPage } from "../features/solicitar-filiacao/pages/Soli
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 export function App() {
+  useGlobalClickAudit();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => hasAuthSession());
   const navigate = useNavigate();
   const location = useLocation();

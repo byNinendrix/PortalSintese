@@ -13,6 +13,11 @@ export interface CongressoAtivo {
   hora_inicio: string | null;
   hora_fim: string | null;
   logo: string | null;
+  palestrantes?: Array<{
+    nome: string | null;
+    cargo_funcao?: string | null;
+    data_palestra?: string | null;
+  }>;
 }
 
 export interface CongressistaBasico {
@@ -66,7 +71,19 @@ export interface CongressistaBasico {
 export interface ConsultaCongressistaAtivo {
   encontrado: boolean;
   mensagem: string;
+  presencas_confirmadas?: string[];
   congressista?: CongressistaBasico;
+}
+
+export interface CarimbarPresencaResponse {
+  sucesso: true;
+  mensagem: string;
+  presenca: {
+    data_palestra: string | null;
+    confirmado: boolean;
+    data_confirmacao: string | null;
+    usuario_confirmacao: string | null;
+  };
 }
 
 export interface CongressistaService {
@@ -75,6 +92,12 @@ export interface CongressistaService {
     cpf: string,
     dataNascimento: string,
   ): Promise<ConsultaCongressistaAtivo>;
+  carimbarPresenca(
+    idCongressista: number,
+    dataPalestra: string,
+    usuario: string,
+    senha: string,
+  ): Promise<CarimbarPresencaResponse>;
 }
 
 class CongressistaServiceImpl implements CongressistaService {
@@ -91,6 +114,26 @@ class CongressistaServiceImpl implements CongressistaService {
       {
         method: "POST",
         body: JSON.stringify({ cpf, dataNascimento }),
+      },
+    );
+  }
+
+  async carimbarPresenca(
+    idCongressista: number,
+    dataPalestra: string,
+    usuario: string,
+    senha: string,
+  ): Promise<CarimbarPresencaResponse> {
+    return apiRequest<CarimbarPresencaResponse>(
+      "/congressos/ativo/congressista/presencas",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          id_congressista: idCongressista,
+          data_palestra: dataPalestra,
+          usuario,
+          senha,
+        }),
       },
     );
   }

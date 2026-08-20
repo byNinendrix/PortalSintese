@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { Button, LoadingSpinner } from "@sintese/ui";
 import { TimedAlert } from "../../../shared/components/TimedAlert";
@@ -100,6 +101,43 @@ function parseBirthDateInput(value: string): string | null {
   }
 
   return `${year.toString().padStart(4, "0")}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
+}
+
+type PalestranteCongressista = NonNullable<
+  CongressoAtivo["palestrantes"]
+>[number];
+
+function agruparPalestrantesPorData(
+  palestrantes: PalestranteCongressista[],
+): Array<{ data: string | null; palestrantes: PalestranteCongressista[] }> {
+  const grupos = new Map<string, PalestranteCongressista[]>();
+
+  palestrantes.forEach((palestrante) => {
+    const data =
+      palestrante.data_palestra?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+    const chave = data ?? "__sem_data__";
+    const grupo = grupos.get(chave) ?? [];
+    grupo.push(palestrante);
+    grupos.set(chave, grupo);
+  });
+
+  return Array.from(grupos.entries())
+    .sort(([dataA], [dataB]) => {
+      if (dataA === "__sem_data__") return 1;
+      if (dataB === "__sem_data__") return -1;
+      return dataA.localeCompare(dataB);
+    })
+    .map(([chave, grupo]) => ({
+      data: chave === "__sem_data__" ? null : chave,
+      palestrantes: grupo,
+    }));
+}
+
+function getTodayDateKey(): string {
+  const today = new Date();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${today.getFullYear()}-${month}-${day}`;
 }
 
 function InfoRow({
@@ -310,6 +348,16 @@ export function CongressistaPage() {
     null,
   );
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [presencasConfirmadas, setPresencasConfirmadas] = useState<string[]>(
+    [],
+  );
+  const [presencaModalData, setPresencaModalData] = useState<string | null>(
+    null,
+  );
+  const [presencaUsuario, setPresencaUsuario] = useState("");
+  const [presencaSenha, setPresencaSenha] = useState("");
+  const [presencaErro, setPresencaErro] = useState<string | null>(null);
+  const [isConfirmingPresenca, setIsConfirmingPresenca] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -381,6 +429,7 @@ export function CongressistaPage() {
         dataNascimento,
       );
       setConsulta(result);
+      setPresencasConfirmadas(result.presencas_confirmadas ?? []);
       setNotice({
         className: result.encontrado ? "alert-success" : "alert-warning",
         message: result.encontrado
@@ -389,6 +438,7 @@ export function CongressistaPage() {
       });
     } catch {
       setConsulta(null);
+      setPresencasConfirmadas([]);
       setNotice({
         className: "alert-error",
         message:
@@ -396,6 +446,82 @@ export function CongressistaPage() {
       });
     } finally {
       setIsConsulting(false);
+    }
+  }
+
+  function openPresencaModal(data: string | null) {
+    if (!data || data > getTodayDateKey()) {
+      return;
+    }
+
+    setPresencaModalData(data);
+    setPresencaUsuario("");
+    setPresencaSenha("");
+    setPresencaErro(null);
+  }
+
+  function closePresencaModal() {
+    if (isConfirmingPresenca) {
+      return;
+    }
+
+    setPresencaModalData(null);
+    setPresencaUsuario("");
+    setPresencaSenha("");
+    setPresencaErro(null);
+  }
+
+  async function submitPresenca(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!presencaModalData || !consulta?.congressista?.id_congressista) {
+      setPresencaErro("Não foi possível validar o congressista consultado.");
+      return;
+    }
+
+    if (!presencaUsuario.trim() || !presencaSenha) {
+      setPresencaErro("Informe usuário e senha para confirmar a presença.");
+      return;
+    }
+
+    setIsConfirmingPresenca(true);
+    setPresencaErro(null);
+
+    try {
+      const response = await congressistaService.carimbarPresenca(
+        consulta.congressista.id_congressista,
+        presencaModalData,
+        presencaUsuario.trim(),
+        presencaSenha,
+      );
+      setPresencasConfirmadas((prev) =>
+        prev.includes(presencaModalData) ? prev : [...prev, presencaModalData],
+      );
+      setPresencaModalData(null);
+      setPresencaUsuario("");
+      setPresencaSenha("");
+      setNotice({ className: "alert-success", message: response.mensagem });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("A presença já foi confirmada para esta data.")
+      ) {
+        setPresencasConfirmadas((prev) =>
+          prev.includes(presencaModalData)
+            ? prev
+            : [...prev, presencaModalData],
+        );
+        setPresencaModalData(null);
+        setPresencaUsuario("");
+        setPresencaSenha("");
+      }
+      setPresencaErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível confirmar a presença no momento.",
+      );
+    } finally {
+      setIsConfirmingPresenca(false);
     }
   }
 
@@ -667,6 +793,80 @@ export function CongressistaPage() {
                 value={yesNo(consulta.congressista.transporte)}
               />
             </dl>
+            {congresso?.palestrantes && congresso.palestrantes.length > 0 ? (
+              <section className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Palestrantes
+                </p>
+                <div className="mt-3 space-y-3">
+                  {agruparPalestrantesPorData(congresso.palestrantes).map(
+                    (grupo) =>
+                      (() => {
+                        const confirmado = grupo.data
+                          ? presencasConfirmadas.includes(grupo.data)
+                          : false;
+                        const disponivel = grupo.data
+                          ? grupo.data <= getTodayDateKey()
+                          : false;
+                        const containerClass = confirmado
+                          ? "border-emerald-200 bg-emerald-50"
+                          : grupo.data && !disponivel
+                            ? "border-slate-200 bg-slate-50"
+                            : "border-rose-200 bg-rose-50";
+
+                        return (
+                          <div
+                            key={grupo.data ?? "sem-data"}
+                            className={`rounded-xl border p-4 ${containerClass}`}
+                          >
+                            <h3 className="text-sm font-extrabold text-slate-800">
+                              {grupo.data
+                                ? formatDateBr(grupo.data)
+                                : "Data não informada"}
+                            </h3>
+                            <div className="mt-2 grid grid-cols-1 gap-3">
+                              {grupo.palestrantes.map((palestrante, index) => (
+                                <article
+                                  key={`${palestrante.nome ?? "palestrante"}-${index}`}
+                                  className="rounded-xl border border-slate-200 bg-white p-3"
+                                >
+                                  <h4 className="text-sm font-extrabold text-slate-900">
+                                    {fallback(palestrante.nome)}
+                                  </h4>
+                                  <p className="mt-1 text-sm text-slate-700">
+                                    {fallback(palestrante.cargo_funcao)}
+                                  </p>
+                                </article>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              title="Funcionalidade em breve"
+                              disabled={
+                                !grupo.data ||
+                                !disponivel ||
+                                confirmado ||
+                                isConfirmingPresenca
+                              }
+                              onClick={() => openPresencaModal(grupo.data)}
+                              className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-extrabold text-emerald-800 transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                              <span aria-hidden="true" className="mr-2">
+                                ✅
+                              </span>
+                              {confirmado
+                                ? "Presença confirmada"
+                                : disponivel
+                                  ? "Carimbar presença"
+                                  : "Disponível na data da palestra"}
+                            </button>
+                          </div>
+                        );
+                      })(),
+                  )}
+                </div>
+              </section>
+            ) : null}
           </div>
         ) : null}
 
@@ -676,6 +876,81 @@ export function CongressistaPage() {
           </Button>
         </Link>
       </form>
+
+      {presencaModalData
+        ? createPortal(
+            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4">
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="carimbar-presenca-titulo"
+                className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"
+              >
+                <h2
+                  id="carimbar-presenca-titulo"
+                  className="text-lg font-extrabold text-slate-900"
+                >
+                  Carimbar presença
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Data da palestra: {formatDateBr(presencaModalData)}
+                </p>
+                <form className="mt-4 space-y-3" onSubmit={submitPresenca}>
+                  <div>
+                    <label
+                      htmlFor="presenca-usuario"
+                      className="mb-1 block text-sm font-semibold text-slate-700"
+                    >
+                      Usuário
+                    </label>
+                    <input
+                      id="presenca-usuario"
+                      value={presencaUsuario}
+                      onChange={(event) =>
+                        setPresencaUsuario(event.target.value)
+                      }
+                      autoComplete="username"
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="presenca-senha"
+                      className="mb-1 block text-sm font-semibold text-slate-700"
+                    >
+                      Senha
+                    </label>
+                    <input
+                      id="presenca-senha"
+                      type="password"
+                      value={presencaSenha}
+                      onChange={(event) => setPresencaSenha(event.target.value)}
+                      autoComplete="current-password"
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </div>
+                  {presencaErro ? (
+                    <div className="alert-error">{presencaErro}</div>
+                  ) : null}
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={closePresencaModal}
+                      disabled={isConfirmingPresenca}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button type="submit" isLoading={isConfirmingPresenca}>
+                      Confirmar presença
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }

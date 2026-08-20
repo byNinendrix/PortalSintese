@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger }
 import { randomBytes } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
+import { AuditoriaService } from "../../auditoria/auditoria.service";
 import { renderPortalEmailTemplate } from "../../../shared/email/portal-email.template";
 import { LoginDto } from "../dto/login.dto";
 import { RecoverPasswordDto } from "../dto/recover-password.dto";
@@ -56,7 +57,10 @@ interface PessoaLgpdRow {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
-  constructor(private readonly legacyDatabaseService: LegacyDatabaseService) {}
+  constructor(
+    private readonly legacyDatabaseService: LegacyDatabaseService,
+    private readonly auditoriaService: AuditoriaService,
+  ) {}
 
   private sanitizeCpf(cpf: string): string {
     return cpf.replace(/\D/g, "");
@@ -596,6 +600,12 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
       });
     }
 
+    const canalMotivo = payload.preferredChannel === "email" ? "por email" : "por whatsapp";
+    void this.auditoriaService.registrarAcao(
+      `Recuperacao de senha solicitada ${canalMotivo}`,
+      cpfDigits,
+    );
+
     return {
       success: true,
       message:
@@ -649,6 +659,11 @@ Por favor, altere a senha assim que possível para garantir a segurança do seu 
         CPF: cpfDigits,
         SENHA: newPassword
       }
+    );
+
+    void this.auditoriaService.registrarAcao(
+      "Redefinicao de senha realizada",
+      cpfDigits,
     );
 
     return {

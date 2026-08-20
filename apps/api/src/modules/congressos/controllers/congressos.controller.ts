@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { CarimbarPresencaDto } from "../dto/carimbar-presenca.dto";
 import { ConsultaCongressistaDto } from "../dto/consulta-congressista.dto";
 import { CongressosService } from "../services/congressos.service";
 
@@ -19,5 +20,10 @@ export class CongressosController {
   @Post("ativo/congressista/consulta")
   findCongressistaAtivoSeguro(@Body() body: ConsultaCongressistaDto) {
     return this.congressosService.findCongressistaAtivoSeguro(body);
+  }
+
+  @Post("ativo/congressista/presencas")
+  carimbarPresenca(@Body() body: CarimbarPresencaDto) {
+    return this.congressosService.carimbarPresenca(body);
   }
 }

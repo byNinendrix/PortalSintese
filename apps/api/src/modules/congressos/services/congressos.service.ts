@@ -1,9 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   InternalServerErrorException,
 } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
+import { AuditoriaService } from "../../auditoria/auditoria.service";
+import { CarimbarPresencaDto } from "../dto/carimbar-presenca.dto";
 import { ConsultaCongressistaDto } from "../dto/consulta-congressista.dto";
 
 interface CongressoAtivoRow {
@@ -23,6 +27,31 @@ interface CongressoAtivoRow {
 
 interface CongressoAtivoIdRow {
   ID_CONGRESSO: number | null;
+}
+
+interface CongressoPalestranteRow {
+  NOME: string | null;
+  CARGOFUNCAO: string | null;
+  DATA_PALESTRA: Date | string | null;
+}
+
+interface PresencaPalestraRow {
+  DATA_PALESTRA: Date | string | null;
+  DISPONIVEL: number | boolean | string | null;
+}
+
+interface UsuarioAdministrativoRow {
+  USR_CODIGO: number | null;
+  USR_LOGIN: string | null;
+  USR_SENHA: string | null;
+  USR_ADMINISTRADOR: string | null;
+}
+
+interface PresencaAtivaRow {
+  DATA_PALESTRA: Date | string | null;
+  CONFIRMADO: unknown;
+  DATA_CONFIRMACAO: Date | string | null;
+  USUARIO_CONFIRMACAO: string | null;
 }
 
 interface CongressoCongressistaRow {
@@ -72,7 +101,10 @@ interface CongressoDependenteRow {
 
 @Injectable()
 export class CongressosService {
-  constructor(private readonly legacyDatabaseService: LegacyDatabaseService) {}
+  constructor(
+    private readonly legacyDatabaseService: LegacyDatabaseService,
+    private readonly auditoriaService: AuditoriaService,
+  ) {}
 
   private digitsOnly(value: unknown): string {
     return typeof value === "string" ? value.replace(/\D/g, "") : "";
@@ -271,6 +303,23 @@ export class CongressosService {
       return null;
     }
 
+    const idCongresso = this.toNumber(row.ID_CONGRESSO);
+    const palestrantes =
+      idCongresso === null
+        ? []
+        : await this.legacyDatabaseService.query<CongressoPalestranteRow>(
+            `
+          SELECT
+                NOME,
+                CARGOFUNCAO,
+                DATA_PALESTRA
+          FROM SINTESE.dbo.CONGRESSO_PALESTRANTE
+          WHERE ID_CONGRESSO = @ID_CONGRESSO
+          ORDER BY DATA_PALESTRA, NOME
+          `,
+            { ID_CONGRESSO: idCongresso },
+          );
+
     return {
       id_congresso: this.toNumber(row.ID_CONGRESSO),
       ano: typeof row.ANO === "number" ? row.ANO : this.toText(row.ANO),
@@ -284,6 +333,11 @@ export class CongressosService {
       hora_inicio: this.toSerializableDateTime(row.HORA_INICIO),
       hora_fim: this.toSerializableDateTime(row.HORA_FIM),
       logo: this.normalizarLogoCongresso(row.LOGO),
+      palestrantes: palestrantes.map((palestrante) => ({
+        nome: this.toText(palestrante.NOME),
+        cargo_funcao: this.toText(palestrante.CARGOFUNCAO),
+        data_palestra: this.toSerializableDateTime(palestrante.DATA_PALESTRA),
+      })),
     };
   }
 
@@ -299,6 +353,249 @@ export class CongressosService {
       date.getUTCMonth() === month - 1 &&
       date.getUTCDate() === day
     );
+  }
+
+  private md5(value: string): string {
+    return createHash("md5").update(value, "utf8").digest("hex");
+  }
+
+  private getPasswordHashes(password: string, codigo: number): Set<string> {
+    const trimmedPassword = password.trim();
+    const values = [
+      password,
+      trimmedPassword,
+      password.toUpperCase(),
+      password.toLowerCase(),
+      String(codigo) + password,
+      String(codigo) + trimmedPassword,
+      password + String(codigo),
+      trimmedPassword + String(codigo),
+    ];
+
+    return new Set(values.map((value) => this.md5(value).toLowerCase()));
+  }
+
+  private isTrueFlag(value: unknown): boolean {
+    const normalized = String(value ?? "")
+      .trim()
+      .toUpperCase();
+    return (
+      normalized === "1" ||
+      normalized === "S" ||
+      normalized === "SIM" ||
+      normalized === "TRUE"
+    );
+  }
+
+  private sanitizarUsuarioAuditoria(usuario: string): string {
+    return usuario
+      .replace(/[^\w\sÀ-ÿ.:_\-@]/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+      .slice(0, 50) || "desconhecido";
+  }
+
+  private async registrarAuditoriaPorCongressista(
+    motivo: string,
+    idCongressista: number,
+    idCongresso: number,
+  ): Promise<void> {
+    try {
+      const rows = await this.legacyDatabaseService.query<{ CPF: string | null }>(
+        `
+        SELECT TOP 1
+          REPLACE(REPLACE(REPLACE(CPF, '.', ''), '-', ''), ' ', '') AS CPF
+        FROM SINTESE.dbo.CONGRESSO_CONGRESSISTA
+        WHERE ID_CONGRESSISTA = @ID_CONGRESSISTA
+          AND ID_CONGRESSO = @ID_CONGRESSO
+        `,
+        { ID_CONGRESSISTA: idCongressista, ID_CONGRESSO: idCongresso },
+      );
+      const cpf = rows[0]?.CPF?.replace(/\D/g, "");
+      const cpfValido = cpf?.length === 11 ? cpf : null;
+      await this.auditoriaService.registrarAcao(motivo, cpfValido);
+    } catch {
+      // falha silenciosa — nunca bloqueia a ação principal
+    }
+  }
+
+  async carimbarPresenca(body: CarimbarPresencaDto) {
+    const usuario = body.usuario.trim();
+    const senha = body.senha;
+
+    if (!this.isIsoDate(body.data_palestra) || !usuario || !senha) {
+      throw new BadRequestException(
+        "Não foi possível validar os dados informados.",
+      );
+    }
+
+    const idCongresso = await this.findCongressoAtivoId();
+    if (!idCongresso) {
+      throw new BadRequestException("Congresso ativo não encontrado.");
+    }
+
+    try {
+      const congressistaRows = await this.legacyDatabaseService.query<{
+        ID_CONGRESSISTA: number;
+      }>(
+        `
+        SELECT TOP 1 ID_CONGRESSISTA
+        FROM SINTESE.dbo.CONGRESSO_CONGRESSISTA
+        WHERE ID_CONGRESSO = @ID_CONGRESSO
+          AND ID_CONGRESSISTA = @ID_CONGRESSISTA
+        `,
+        { ID_CONGRESSO: idCongresso, ID_CONGRESSISTA: body.id_congressista },
+      );
+
+      if (congressistaRows.length === 0) {
+        throw new BadRequestException(
+          "Congressista inválido para o congresso ativo.",
+        );
+      }
+
+      const palestraRows =
+        await this.legacyDatabaseService.query<PresencaPalestraRow>(
+          `
+        SELECT TOP 1
+              DATA_PALESTRA,
+              CASE WHEN CONVERT(date, DATA_PALESTRA) <= CONVERT(date, GETDATE()) THEN 1 ELSE 0 END AS DISPONIVEL
+        FROM SINTESE.dbo.CONGRESSO_PALESTRANTE
+        WHERE ID_CONGRESSO = @ID_CONGRESSO
+          AND CONVERT(date, DATA_PALESTRA) = CONVERT(date, @DATA_PALESTRA)
+        `,
+          { ID_CONGRESSO: idCongresso, DATA_PALESTRA: body.data_palestra },
+        );
+
+      const palestra = palestraRows[0];
+      if (!palestra) {
+        throw new BadRequestException(
+          "Palestra inválida para o congresso ativo.",
+        );
+      }
+
+      if (!this.isTrueFlag(palestra.DISPONIVEL)) {
+        throw new BadRequestException(
+          "A presença só pode ser confirmada na data da palestra ou depois.",
+        );
+      }
+
+      const usuarioRows =
+        await this.legacyDatabaseService.query<UsuarioAdministrativoRow>(
+          `
+        SELECT TOP 1
+            USR_CODIGO,
+              USR_LOGIN,
+              USR_SENHA,
+              USR_ADMINISTRADOR
+        FROM SINTESE.dbo.FR_USUARIO
+          WHERE UPPER(LTRIM(RTRIM(USR_LOGIN))) = UPPER(LTRIM(RTRIM(@USR_LOGIN)))
+        `,
+          { USR_LOGIN: usuario },
+        );
+
+      const usuarioRow = usuarioRows[0];
+      if (
+        !usuarioRow ||
+        !this.isTrueFlag(usuarioRow.USR_ADMINISTRADOR) ||
+        !this.getPasswordHashes(senha, usuarioRow.USR_CODIGO ?? 0).has(
+          (usuarioRow.USR_SENHA ?? "").trim().toLowerCase(),
+        )
+      ) {
+        void this.registrarAuditoriaPorCongressista(
+          "Tentativa invalida de confirmar presenca congressista",
+          body.id_congressista,
+          idCongresso,
+        );
+        throw new BadRequestException("Credenciais administrativas inválidas.");
+      }
+
+      const presencaRows =
+        await this.legacyDatabaseService.query<PresencaAtivaRow>(
+          `
+        SELECT TOP 1
+              DATA_PALESTRA,
+              CONFIRMADO,
+              DATA_CONFIRMACAO,
+              USUARIO_CONFIRMACAO
+        FROM SINTESE.dbo.CONGRESSO_CONGRESSISTA_PRESENCA
+        WHERE ID_CONGRESSO = @ID_CONGRESSO
+          AND ID_CONGRESSISTA = @ID_CONGRESSISTA
+          AND CONVERT(date, DATA_PALESTRA) = CONVERT(date, @DATA_PALESTRA)
+          AND CANCELADO = 0
+        `,
+          {
+            ID_CONGRESSO: idCongresso,
+            ID_CONGRESSISTA: body.id_congressista,
+            DATA_PALESTRA: body.data_palestra,
+          },
+        );
+
+      if (presencaRows.length > 0) {
+        void this.registrarAuditoriaPorCongressista(
+          `Presenca congressista ja confirmada consultada por usuario ${this.sanitizarUsuarioAuditoria(usuario)}`,
+          body.id_congressista,
+          idCongresso,
+        );
+        throw new ConflictException(
+          "A presença já foi confirmada para esta data.",
+        );
+      }
+
+      const insertedRows =
+        await this.legacyDatabaseService.query<PresencaAtivaRow>(
+          `
+        INSERT INTO SINTESE.dbo.CONGRESSO_CONGRESSISTA_PRESENCA
+          (ID_CONGRESSO, ID_CONGRESSISTA, DATA_PALESTRA, CONFIRMADO, USUARIO_CONFIRMACAO, CANCELADO)
+        OUTPUT
+          INSERTED.DATA_PALESTRA,
+          INSERTED.CONFIRMADO,
+          INSERTED.DATA_CONFIRMACAO,
+          INSERTED.USUARIO_CONFIRMACAO
+        VALUES
+          (@ID_CONGRESSO, @ID_CONGRESSISTA, CONVERT(date, @DATA_PALESTRA), 1, @USUARIO_CONFIRMACAO, 0)
+        `,
+          {
+            ID_CONGRESSO: idCongresso,
+            ID_CONGRESSISTA: body.id_congressista,
+            DATA_PALESTRA: body.data_palestra,
+            USUARIO_CONFIRMACAO: usuarioRow.USR_LOGIN?.trim() ?? usuario,
+          },
+        );
+
+      const inserted = insertedRows[0];
+
+      void this.registrarAuditoriaPorCongressista(
+        `Presenca congressista confirmada por usuario ${this.sanitizarUsuarioAuditoria(usuarioRow.USR_LOGIN?.trim() ?? usuario)}`,
+        body.id_congressista,
+        idCongresso,
+      );
+
+      return {
+        sucesso: true,
+        mensagem: "Presença confirmada com sucesso.",
+        presenca: {
+          data_palestra: this.toSerializableDateTime(
+            inserted?.DATA_PALESTRA ?? body.data_palestra,
+          ),
+          confirmado: this.isTrueFlag(inserted?.CONFIRMADO),
+          data_confirmacao: this.toSerializableDateTime(
+            inserted?.DATA_CONFIRMACAO,
+          ),
+          usuario_confirmacao: this.toText(inserted?.USUARIO_CONFIRMACAO),
+        },
+      };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        "Não foi possível confirmar a presença no momento.",
+      );
+    }
   }
 
   async findCongressistaAtivo(cpf: string | undefined) {
@@ -440,6 +737,10 @@ export class CongressosService {
 
       const row = rows[0];
       if (!row) {
+        void this.auditoriaService.registrarAcao(
+          "Consulta congressista nao localizada",
+          cpfDigits,
+        );
         return {
           encontrado: false,
           mensagem: dataNascimento
@@ -450,6 +751,26 @@ export class CongressosService {
 
       const idCongressista = this.toNumber(row.ID_CONGRESSISTA);
       const idCongressoRow = this.toNumber(row.ID_CONGRESSO);
+      const presencasConfirmadas =
+        idCongressista !== null && idCongressoRow !== null
+          ? await this.legacyDatabaseService.query<{
+              DATA_PALESTRA: string | null;
+            }>(
+              `
+              SELECT DISTINCT CONVERT(varchar(10), DATA_PALESTRA, 23) AS DATA_PALESTRA
+              FROM SINTESE.dbo.CONGRESSO_CONGRESSISTA_PRESENCA
+              WHERE ID_CONGRESSO = @ID_CONGRESSO
+                AND ID_CONGRESSISTA = @ID_CONGRESSISTA
+                AND CONFIRMADO = 1
+                AND CANCELADO = 0
+              ORDER BY DATA_PALESTRA
+              `,
+              {
+                ID_CONGRESSO: idCongressoRow,
+                ID_CONGRESSISTA: idCongressista,
+              },
+            )
+          : [];
       const dependentes =
         idCongressista !== null && idCongressoRow !== null
           ? await this.legacyDatabaseService.query<CongressoDependenteRow>(
@@ -523,9 +844,17 @@ export class CongressosService {
             )
           : [];
 
+      void this.auditoriaService.registrarAcao(
+        "Consulta congressista realizada",
+        cpfDigits,
+      );
+
       return {
         encontrado: true,
         mensagem: "Congressista localizado para este congresso.",
+        presencas_confirmadas: presencasConfirmadas
+          .map((presenca) => presenca.DATA_PALESTRA)
+          .filter((data): data is string => Boolean(data)),
         congressista: {
           id_congressista: idCongressista,
           id_congresso: idCongressoRow,

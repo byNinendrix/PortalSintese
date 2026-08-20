@@ -6,6 +6,7 @@ import { carteiraService } from "../../menu/services/carteira.service";
 import { digitsOnly, formatCpf } from "../../../shared/utils/masks";
 import { useLoginMutation } from "../hooks/useAuthMutations";
 import { saveAuthSession } from "../services/authSession";
+import { registrarAcaoPortal } from "../../../shared/services/auditoria.service";
 
 type LoginErrors = {
   cpf?: string;
@@ -63,6 +64,11 @@ export function LoginPage() {
     };
   }, []);
 
+  function cpfParaAuditoria(): string | undefined {
+    const digits = digitsOnly(cpf);
+    return digits.length === 11 ? digits : undefined;
+  }
+
   function onCongressistaClick() {
     navigate("/congressista");
   }
@@ -92,6 +98,7 @@ export function LoginPage() {
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    void registrarAcaoPortal("Tentativa de acesso realizada", cpfParaAuditoria());
 
     if (!validateForm()) {
       return;
