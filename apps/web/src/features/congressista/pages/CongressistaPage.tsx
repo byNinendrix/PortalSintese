@@ -359,10 +359,11 @@ function CertificadoPrintArea({
     return null;
   }
 
-  return (
+  return createPortal(
     <div className="certificado-print-area" aria-label="Certificado">
       <CertificadoPreview certificado={certificado} layout={layout} />
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -663,39 +664,48 @@ export function CongressistaPage() {
 
         @media print {
           @page {
-            size: A4 landscape;
+            size: 297mm 210mm;
             margin: 0;
           }
 
-          body * {
-            visibility: hidden !important;
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 297mm !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            background: white !important;
           }
 
-          .certificado-print-area,
-          .certificado-print-area * {
-            visibility: visible !important;
+          body > *:not(.certificado-print-area):not(script):not(style) {
+            display: none !important;
           }
 
           .certificado-print-area {
-            display: block;
-            position: fixed;
-            inset: 0;
-            width: 100%;
-            height: auto;
-            overflow: visible;
+            display: block !important;
+            position: static !important;
+            width: 297mm !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
           }
 
           .certificado-print-area .certificado-sheet {
-            width: 100vw !important;
-            max-width: 100vw !important;
-            height: 100vh !important;
+            display: block !important;
+            position: relative !important;
+            width: 297mm !important;
+            height: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
             page-break-after: always;
-            break-after: page;
           }
 
           .certificado-print-area .certificado-sheet:last-child {
-            page-break-after: auto;
-            break-after: auto;
+            page-break-after: avoid !important;
           }
         }
       `}</style>

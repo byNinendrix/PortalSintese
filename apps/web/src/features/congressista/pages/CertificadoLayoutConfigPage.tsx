@@ -135,6 +135,13 @@ export function CertificadoLayoutConfigPage() {
     setLayout((prev) => setFaceImagemBase(prev, activeFace, imagemBase));
   }
 
+  function updatePlaceholderBold(placeholder: string, bold: boolean) {
+    setLayout((prev) => ({
+      ...prev,
+      placeholderBold: { ...prev.placeholderBold, [placeholder]: bold },
+    }));
+  }
+
   function handleFieldMouseDown(
     fieldId: string,
     event: ReactMouseEvent<HTMLDivElement>,
@@ -624,14 +631,39 @@ export function CertificadoLayoutConfigPage() {
               </p>
               <p className="mt-1 text-xs text-slate-600">
                 Use no campo &quot;Texto do certificado&quot; para dados
-                dinamicos:
+                dinamicos. Ative &quot;Negrito&quot; para destacar o valor
+                substituido:
               </p>
-              <ul className="mt-2 space-y-1">
-                {CERTIFICADO_PLACEHOLDERS.map((p) => (
-                  <li key={p} className="font-mono text-xs text-sky-700">
-                    {p}
-                  </li>
-                ))}
+              <ul className="mt-2 space-y-1.5">
+                {CERTIFICADO_PLACEHOLDERS.map((p) => {
+                  const isBold = layout.placeholderBold?.[p] ?? false;
+                  return (
+                    <li
+                      key={p}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <span className="font-mono text-xs text-sky-700">
+                        {p}
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isBold}
+                        aria-label={`Negrito para ${p}`}
+                        onClick={() => updatePlaceholderBold(p, !isBold)}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                          isBold ? "bg-sky-500" : "bg-slate-300"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                            isBold ? "translate-x-4" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : null}

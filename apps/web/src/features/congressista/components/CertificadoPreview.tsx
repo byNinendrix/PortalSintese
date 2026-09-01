@@ -1,4 +1,4 @@
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import type { CertificadoCongressista } from "../services/congressista.service";
 import type {
   CertificadoFace,
@@ -12,6 +12,7 @@ interface CertificadoFacePreviewProps {
   faceConfig: CertificadoFaceConfig;
   face: CertificadoFace;
   orientacao: CertificadoLayoutConfig["orientacao"];
+  placeholderBold?: Record<string, boolean>;
   className?: string;
   editable?: boolean;
   selectedField?: string | null;
@@ -113,11 +114,10 @@ function formatPeriodo(certificado: CertificadoCongressista): string {
   return inicio === fim ? inicio : `${inicio} a ${fim}`;
 }
 
-function replacePlaceholders(
-  template: string,
+function getPlaceholderMap(
   certificado: CertificadoCongressista,
-): string {
-  const map: Record<string, string> = {
+): Record<string, string> {
+  return {
     "{NOME_CONGRESSISTA}": fallback(certificado.nome),
     "{NOME_CONGRESSO}": fallback(certificado.congresso.discriminacao),
     "{TEMA_GERAL}": fallback(certificado.congresso.tema_geral),
@@ -128,12 +128,68 @@ function replacePlaceholders(
     "{PLENARIA}": certificado.plenaria ?? "-",
     "{DATA_EMISSAO}": formatDateBr(certificado.data_emissao),
   };
+}
 
+function replacePlaceholders(
+  template: string,
+  certificado: CertificadoCongressista,
+): string {
+  const map = getPlaceholderMap(certificado);
   let result = template;
   for (const [placeholder, value] of Object.entries(map)) {
     result = result.replaceAll(placeholder, value);
   }
   return result;
+}
+
+function replacePlaceholdersToNodes(
+  template: string,
+  certificado: CertificadoCongressista,
+  boldMap?: Record<string, boolean>,
+): ReactNode {
+  const map = getPlaceholderMap(certificado);
+  const placeholders = Object.keys(map);
+  const pattern = placeholders
+    .map((p) => p.replace(/[{}]/g, "\\$&"))
+    .join("|");
+
+  if (!pattern) {
+    return template;
+  }
+
+  const regex = new RegExp(`(${pattern})`, "g");
+  const parts = template.split(regex);
+
+  const hasBold = boldMap && parts.some(
+    (part) => placeholders.includes(part) && boldMap[part],
+  );
+
+  if (!hasBold) {
+    let result = template;
+    for (const [placeholder, value] of Object.entries(map)) {
+      result = result.replaceAll(placeholder, value);
+    }
+    return result;
+  }
+
+  return (
+    <span style={{ whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "normal" }}>
+      {parts.map((part, index) => {
+        if (placeholders.includes(part)) {
+          const value = map[part];
+          if (boldMap[part]) {
+            return (
+              <span key={index} style={{ fontWeight: 700 }}>
+                {value}
+              </span>
+            );
+          }
+          return value;
+        }
+        return part;
+      })}
+    </span>
+  );
 }
 
 function buildFrenteValues(
@@ -170,10 +226,10 @@ function buildProgramacaoTexto(certificado: CertificadoCongressista): string {
   for (const item of programacao) {
     const dataKey = item.data_palestra
       ? formatDateBr(item.data_palestra)
-      : "Data nao informada";
+      : "Data não informada";
     const grupo = porData.get(dataKey) ?? [];
     grupo.push({
-      nome: item.nome ?? "Palestrante nao informado",
+      nome: item.nome ?? "Palestrante não informado",
       cargo: item.cargo_funcao ?? "",
     });
     porData.set(dataKey, grupo);
@@ -183,7 +239,7 @@ function buildProgramacaoTexto(certificado: CertificadoCongressista): string {
   for (const [data, itens] of porData) {
     linhas.push(`${data}:`);
     for (const item of itens) {
-      const desc = item.cargo ? `${item.nome} - ${item.cargo}` : item.nome;
+      const desc = item.cargo ? `${item.nome} — ${item.cargo}` : item.nome;
       linhas.push(`  - ${desc}`);
     }
     linhas.push("");
@@ -235,6 +291,7 @@ function CertificadoFacePreview({
   faceConfig,
   face,
   orientacao,
+  placeholderBold,
   className,
   editable = false,
   selectedField = null,
@@ -276,15 +333,37 @@ function CertificadoFacePreview({
           typeof field.texto === "string" &&
           field.texto.trim().length > 0;
 
-        let displayValue = hasTextoFixo
+        const rawTemplate = hasTextoFixo
           ? field.texto!
           : (rawValues[fieldId] ?? (editable ? fieldId : ""));
 
-        if (fieldId !== "programacaoCongresso") {
-          displayValue = replacePlaceholders(displayValue, certificado);
-        }
-
         const isProgramacao = fieldId === "programacaoCongresso";
+
+        let displayContent: ReactNode;
+        if (isProgramacao) {
+          displayContent = (
+            <pre
+              style={{
+                margin: 0,
+                fontFamily: "inherit",
+                fontSize: "inherit",
+                fontWeight: "inherit",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                lineHeight: 1.5,
+              }}
+            >
+              {rawTemplate}
+            </pre>
+          );
+        } else {
+          const rendered = replacePlaceholdersToNodes(
+            rawTemplate,
+            certificado,
+            placeholderBold,
+          );
+          displayContent = rendered || (editable ? "-" : "");
+        }
 
         return (
           <div
@@ -297,23 +376,7 @@ function CertificadoFacePreview({
                 : undefined
             }
           >
-            {isProgramacao ? (
-              <pre
-                style={{
-                  margin: 0,
-                  fontFamily: "inherit",
-                  fontSize: "inherit",
-                  fontWeight: "inherit",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  lineHeight: 1.5,
-                }}
-              >
-                {displayValue}
-              </pre>
-            ) : (
-              displayValue || (editable ? "-" : "")
-            )}
+            {displayContent}
           </div>
         );
       })}
@@ -337,6 +400,8 @@ export function CertificadoPreview({
   onFieldMouseDown,
   showGuides = false,
 }: CertificadoPreviewProps) {
+  const boldMap = layout.placeholderBold;
+
   if (face) {
     const faceConfig = face === "frente" ? layout.frente : layout.verso;
     return (
@@ -345,6 +410,7 @@ export function CertificadoPreview({
         faceConfig={faceConfig}
         face={face}
         orientacao={layout.orientacao}
+        placeholderBold={boldMap}
         className={className}
         editable={editable}
         selectedField={selectedField}
@@ -361,6 +427,7 @@ export function CertificadoPreview({
         faceConfig={layout.frente}
         face="frente"
         orientacao={layout.orientacao}
+        placeholderBold={boldMap}
         className={className}
         editable={editable}
         selectedField={selectedField}
@@ -372,6 +439,7 @@ export function CertificadoPreview({
         faceConfig={layout.verso}
         face="verso"
         orientacao={layout.orientacao}
+        placeholderBold={boldMap}
         className={className}
         editable={editable}
         selectedField={selectedField}

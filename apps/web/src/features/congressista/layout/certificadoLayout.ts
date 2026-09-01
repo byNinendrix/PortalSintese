@@ -44,6 +44,7 @@ export interface CertificadoLayoutConfig {
   orientacao: CertificadoOrientacao;
   frente: CertificadoFaceConfig;
   verso: CertificadoFaceConfig;
+  placeholderBold?: Record<string, boolean>;
 }
 
 export const CERTIFICADO_LAYOUT_STORAGE_KEY =
@@ -250,6 +251,18 @@ export const DEFAULT_VERSO_CAMPOS: Record<CertificadoVersoCampoId, CertificadoLa
   },
 };
 
+export const DEFAULT_PLACEHOLDER_BOLD: Record<string, boolean> = {
+  "{NOME_CONGRESSISTA}": true,
+  "{NOME_CONGRESSO}": true,
+  "{TEMA_GERAL}": false,
+  "{LOCAL}": false,
+  "{PERIODO_CONGRESSO}": false,
+  "{FUNCAO}": false,
+  "{DELEGACAO}": false,
+  "{PLENARIA}": false,
+  "{DATA_EMISSAO}": false,
+};
+
 export const DEFAULT_CERTIFICADO_LAYOUT: CertificadoLayoutConfig = {
   version: 2,
   orientacao: "landscape",
@@ -261,6 +274,7 @@ export const DEFAULT_CERTIFICADO_LAYOUT: CertificadoLayoutConfig = {
     imagemBase: null,
     campos: { ...DEFAULT_VERSO_CAMPOS },
   },
+  placeholderBold: { ...DEFAULT_PLACEHOLDER_BOLD },
 };
 
 function clamp(n: number, min: number, max: number): number {
@@ -357,6 +371,16 @@ export function normalizeCertificadoLayout(
     && isPlainObject(source.campos)
     && !isPlainObject(source.frente);
 
+  const rawBold = isPlainObject(source.placeholderBold)
+    ? (source.placeholderBold as Record<string, unknown>)
+    : {};
+  const placeholderBold: Record<string, boolean> = {};
+  for (const key of CERTIFICADO_PLACEHOLDERS) {
+    placeholderBold[key] = typeof rawBold[key] === "boolean"
+      ? rawBold[key]
+      : (DEFAULT_PLACEHOLDER_BOLD[key] ?? false);
+  }
+
   if (isV1) {
     const v1Campos: Record<string, unknown> = source.campos as Record<string, unknown>;
     return {
@@ -367,6 +391,7 @@ export function normalizeCertificadoLayout(
         campos: normalizeFaceCampos(v1Campos, DEFAULT_FRENTE_CAMPOS),
       },
       verso: normalizeFace(null, DEFAULT_CERTIFICADO_LAYOUT.verso, DEFAULT_VERSO_CAMPOS),
+      placeholderBold,
     };
   }
 
@@ -383,6 +408,7 @@ export function normalizeCertificadoLayout(
       DEFAULT_CERTIFICADO_LAYOUT.verso,
       DEFAULT_VERSO_CAMPOS,
     ),
+    placeholderBold,
   };
 }
 
