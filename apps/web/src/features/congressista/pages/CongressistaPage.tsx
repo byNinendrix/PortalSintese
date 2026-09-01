@@ -4,8 +4,15 @@ import { Link } from "react-router-dom";
 import { Button, LoadingSpinner } from "@sintese/ui";
 import { TimedAlert } from "../../../shared/components/TimedAlert";
 import { digitsOnly, formatCpf } from "../../../shared/utils/masks";
+import { CertificadoPreview } from "../components/CertificadoPreview";
+import {
+  DEFAULT_CERTIFICADO_LAYOUT,
+  normalizeCertificadoLayout,
+  type CertificadoLayoutConfig,
+} from "../layout/certificadoLayout";
 import {
   congressistaService,
+  type CertificadoCongressista,
   type CongressoAtivo,
   type ConsultaCongressistaAtivo,
 } from "../services/congressista.service";
@@ -337,6 +344,28 @@ function yesNo(value: boolean): string {
   return value ? "Sim" : "Não";
 }
 
+function hasPrintableText(value: string | null | undefined): boolean {
+  return Boolean(value && value.trim().length > 0);
+}
+
+function CertificadoPrintArea({
+  certificado,
+  layout,
+}: {
+  certificado: CertificadoCongressista | null;
+  layout: CertificadoLayoutConfig;
+}) {
+  if (!certificado) {
+    return null;
+  }
+
+  return (
+    <div className="certificado-print-area" aria-label="Certificado">
+      <CertificadoPreview certificado={certificado} layout={layout} />
+    </div>
+  );
+}
+
 export function CongressistaPage() {
   const [congresso, setCongresso] = useState<CongressoAtivo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -358,6 +387,15 @@ export function CongressistaPage() {
   const [presencaSenha, setPresencaSenha] = useState("");
   const [presencaErro, setPresencaErro] = useState<string | null>(null);
   const [isConfirmingPresenca, setIsConfirmingPresenca] = useState(false);
+  const [certificado, setCertificado] =
+    useState<CertificadoCongressista | null>(null);
+  const [certificadoLayout, setCertificadoLayout] =
+    useState<CertificadoLayoutConfig>(() =>
+      normalizeCertificadoLayout(DEFAULT_CERTIFICADO_LAYOUT),
+    );
+  const [certificadoErro, setCertificadoErro] = useState<string | null>(null);
+  const [isGerandoCertificado, setIsGerandoCertificado] = useState(false);
+  const [shouldPrintCertificado, setShouldPrintCertificado] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -429,6 +467,9 @@ export function CongressistaPage() {
         dataNascimento,
       );
       setConsulta(result);
+      setCertificado(null);
+      setCertificadoErro(null);
+      setShouldPrintCertificado(false);
       setPresencasConfirmadas(result.presencas_confirmadas ?? []);
       setNotice({
         className: result.encontrado ? "alert-success" : "alert-warning",
@@ -438,6 +479,9 @@ export function CongressistaPage() {
       });
     } catch {
       setConsulta(null);
+      setCertificado(null);
+      setCertificadoErro(null);
+      setShouldPrintCertificado(false);
       setPresencasConfirmadas([]);
       setNotice({
         className: "alert-error",
@@ -446,6 +490,76 @@ export function CongressistaPage() {
       });
     } finally {
       setIsConsulting(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!certificado || !shouldPrintCertificado) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (typeof window.print !== "function") {
+        setCertificadoErro(
+          "Nao foi possivel abrir a impressao automaticamente neste navegador.",
+        );
+        setShouldPrintCertificado(false);
+        return;
+      }
+
+      try {
+        window.print();
+      } catch {
+        setCertificadoErro(
+          "Nao foi possivel abrir a impressao automaticamente neste navegador.",
+        );
+      } finally {
+        setShouldPrintCertificado(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [certificado, shouldPrintCertificado]);
+
+  async function imprimirCertificado() {
+    const dataNascimento = parseBirthDateInput(dataNascimentoInput);
+
+    if (cpfDigits.length !== 11 || !dataNascimento) {
+      setCertificadoErro(
+        "Consulte novamente o congressista antes de imprimir o certificado.",
+      );
+      return;
+    }
+
+    setIsGerandoCertificado(true);
+    setCertificadoErro(null);
+
+    try {
+      const [result, remoteLayout] = await Promise.all([
+        congressistaService.solicitarCertificadoCongressista({
+          cpf: cpfDigits,
+          data_nascimento: dataNascimento,
+        }),
+        congressistaService.getCertificadoLayout().catch(() => null),
+      ]);
+
+      const layoutFinal = remoteLayout
+        ? normalizeCertificadoLayout(remoteLayout)
+        : normalizeCertificadoLayout(DEFAULT_CERTIFICADO_LAYOUT);
+
+      setCertificadoLayout(layoutFinal);
+      setCertificado(result);
+      setShouldPrintCertificado(true);
+    } catch (error) {
+      setShouldPrintCertificado(false);
+      setCertificado(null);
+      setCertificadoErro(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel gerar o certificado no momento.",
+      );
+    } finally {
+      setIsGerandoCertificado(false);
     }
   }
 
@@ -540,6 +654,48 @@ export function CongressistaPage() {
         @media (prefers-reduced-motion: reduce) {
           .congressista-carro-animado {
             animation: none;
+          }
+        }
+
+        .certificado-print-area {
+          display: none;
+        }
+
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 0;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .certificado-print-area,
+          .certificado-print-area * {
+            visibility: visible !important;
+          }
+
+          .certificado-print-area {
+            display: block;
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: auto;
+            overflow: visible;
+          }
+
+          .certificado-print-area .certificado-sheet {
+            width: 100vw !important;
+            max-width: 100vw !important;
+            height: 100vh !important;
+            page-break-after: always;
+            break-after: page;
+          }
+
+          .certificado-print-area .certificado-sheet:last-child {
+            page-break-after: auto;
+            break-after: auto;
           }
         }
       `}</style>
@@ -671,6 +827,9 @@ export function CongressistaPage() {
             onChange={(event) => {
               setCpfDigits(digitsOnly(event.target.value).slice(0, 11));
               setConsulta(null);
+              setCertificado(null);
+              setCertificadoErro(null);
+              setShouldPrintCertificado(false);
               setNotice(null);
             }}
             inputMode="numeric"
@@ -693,6 +852,9 @@ export function CongressistaPage() {
             onChange={(event) => {
               setDataNascimentoInput(formatBirthDateInput(event.target.value));
               setConsulta(null);
+              setCertificado(null);
+              setCertificadoErro(null);
+              setShouldPrintCertificado(false);
               setNotice(null);
             }}
             inputMode="numeric"
@@ -752,6 +914,9 @@ export function CongressistaPage() {
                 {fallback(consulta.congressista.hospedagem?.descricao)}
               </p>
             </div>
+            {certificadoErro ? (
+              <div className="alert-warning">{certificadoErro}</div>
+            ) : null}
             <DependentesBlock
               dependentes={consulta.congressista.dependentes ?? []}
             />
@@ -808,11 +973,16 @@ export function CongressistaPage() {
                         const disponivel = grupo.data
                           ? grupo.data <= getTodayDateKey()
                           : false;
+                        const credenciado = consulta.congressista?.credenciado === true;
                         const containerClass = confirmado
                           ? "border-emerald-200 bg-emerald-50"
-                          : grupo.data && !disponivel
-                            ? "border-slate-200 bg-slate-50"
-                            : "border-rose-200 bg-rose-50";
+                          : credenciado && grupo.data && !disponivel
+                            ? "border-emerald-100 bg-emerald-50/60"
+                            : credenciado && grupo.data
+                              ? "border-emerald-200 bg-emerald-50"
+                              : grupo.data && !disponivel
+                                ? "border-slate-200 bg-slate-50"
+                                : "border-rose-200 bg-rose-50";
 
                         return (
                           <div
@@ -867,6 +1037,28 @@ export function CongressistaPage() {
                 </div>
               </section>
             ) : null}
+            {consulta.congressista.credenciado === true ? (
+              <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-sky-50 px-3 py-4">
+                <Button
+                  type="button"
+                  className="btn-modern-primary w-full animate-pulse-subtle"
+                  isLoading={isGerandoCertificado}
+                  disabled={isGerandoCertificado}
+                  onClick={() => void imprimirCertificado()}
+                >
+                  {isGerandoCertificado ? "Gerando certificado..." : "\uD83D\uDCDC Imprimir certificado"}
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                <p className="text-sm font-semibold text-slate-600">
+                  Certificado ainda não disponível.
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  O credenciamento deste congressista ainda não foi registrado no sistema para o congresso ativo.
+                </p>
+              </div>
+            )}
           </div>
         ) : null}
 
@@ -951,6 +1143,7 @@ export function CongressistaPage() {
             document.body,
           )
         : null}
+      <CertificadoPrintArea certificado={certificado} layout={certificadoLayout} />
     </section>
   );
 }

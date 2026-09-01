@@ -5,9 +5,12 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { createHash } from "node:crypto";
+import { promises as fs } from "node:fs";
+import * as path from "node:path";
 import { LegacyDatabaseService } from "../../../infra/legacy-database/legacy-database.service";
 import { AuditoriaService } from "../../auditoria/auditoria.service";
 import { CarimbarPresencaDto } from "../dto/carimbar-presenca.dto";
+import { CertificadoCongressistaDto } from "../dto/certificado-congressista.dto";
 import { ConsultaCongressistaDto } from "../dto/consulta-congressista.dto";
 
 interface CongressoAtivoRow {
@@ -77,6 +80,27 @@ interface CongressoCongressistaRow {
   HOSPEDAGEM_DESCRICAO: string | null;
 }
 
+interface CertificadoCongressistaRow {
+  ID_CONGRESSISTA: number | null;
+  ID_CONGRESSO: number | null;
+  CPF_NORMALIZADO: string | null;
+  CREDENCIADO: unknown;
+  FUNCAO: string | null;
+  DELEGACAO: string | null;
+  PLENARIA: string | null;
+  NOME_CONGRESSISTA: string | null;
+  ANO: number | string | null;
+  DISCRIMINACAO: string | null;
+  TEMA_GERAL: string | null;
+  LOCAL: string | null;
+  ENDERECO: string | null;
+  DATA_INICIO: Date | string | null;
+  DATA_FIM: Date | string | null;
+  HORA_INICIO: Date | string | null;
+  HORA_FIM: Date | string | null;
+  LOGO: unknown;
+}
+
 interface CongressoDependenteRow {
   ID_CONGRESSISTA_DEP: number | null;
   NOME: string | null;
@@ -99,12 +123,246 @@ interface CongressoDependenteRow {
   OBSERVACAO: string | null;
 }
 
+interface CertificadoLayoutPayload {
+  layout?: unknown;
+}
+
+const CERTIFICADO_LAYOUT_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+
 @Injectable()
 export class CongressosService {
   constructor(
     private readonly legacyDatabaseService: LegacyDatabaseService,
     private readonly auditoriaService: AuditoriaService,
   ) {}
+
+  private getCertificadoLayoutFilePath(): string {
+    return path.resolve(
+      process.cwd(),
+      ".local-dev",
+      "certificado-congresso-layout-v1.json",
+    );
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  private isValidCertificadoImage(value: unknown): boolean {
+    if (value === null || value === undefined || value === "") {
+      return true;
+    }
+
+    if (typeof value !== "string") {
+      return false;
+    }
+
+    const match = value
+      .trim()
+      .match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=\r\n]+)$/);
+
+    if (!match) {
+      return false;
+    }
+
+    const base64 = match[2].replace(/\s/g, "");
+    const estimatedBytes = Math.floor((base64.length * 3) / 4);
+    return estimatedBytes <= CERTIFICADO_LAYOUT_MAX_IMAGE_BYTES;
+  }
+
+  private isValidCertificadoField(value: unknown): boolean {
+    if (!this.isPlainObject(value)) {
+      return false;
+    }
+
+    return (
+      Number.isFinite(Number(value.x)) &&
+      Number.isFinite(Number(value.y)) &&
+      Number.isFinite(Number(value.w)) &&
+      Number.isFinite(Number(value.h)) &&
+      Number.isFinite(Number(value.fontSize))
+    );
+  }
+
+  private isValidFaceCampos(
+    campos: unknown,
+    requiredFields: string[],
+  ): boolean {
+    if (!this.isPlainObject(campos)) {
+      return false;
+    }
+    const camposObj = campos as Record<string, unknown>;
+    return requiredFields.every((field) =>
+      this.isValidCertificadoField(camposObj[field]),
+    );
+  }
+
+  private isValidCertificadoFace(
+    face: unknown,
+    requiredFields: string[],
+  ): boolean {
+    if (!this.isPlainObject(face)) {
+      return false;
+    }
+    if (!this.isValidCertificadoImage(face.imagemBase)) {
+      return false;
+    }
+    return this.isValidFaceCampos(face.campos, requiredFields);
+  }
+
+  private isValidCertificadoLayout(layout: unknown): boolean {
+    if (!this.isPlainObject(layout)) {
+      return false;
+    }
+
+    const orientacao = layout.orientacao;
+    if (orientacao !== "landscape" && orientacao !== "portrait") {
+      return false;
+    }
+
+    const frenteFields = [
+      "textoCertificado",
+      "nomeCongressista",
+      "nomeCongresso",
+      "temaGeral",
+      "periodoCongresso",
+      "local",
+      "funcao",
+      "delegacao",
+      "plenaria",
+      "dataEmissao",
+      "assinaturaOrganizacao",
+    ];
+
+    const versoFields = [
+      "tituloProgramacao",
+      "programacaoCongresso",
+      "observacaoProgramacao",
+    ];
+
+    if (
+      layout.version === 2 &&
+      this.isPlainObject(layout.frente) &&
+      this.isPlainObject(layout.verso)
+    ) {
+      return (
+        this.isValidCertificadoFace(layout.frente, frenteFields) &&
+        this.isValidCertificadoFace(layout.verso, versoFields)
+      );
+    }
+
+    if (!this.isValidCertificadoImage(layout.imagemBase)) {
+      return false;
+    }
+    if (!this.isPlainObject(layout.campos)) {
+      return false;
+    }
+    const campos = layout.campos as Record<string, unknown>;
+    return frenteFields.every((field) =>
+      this.isValidCertificadoField(campos[field]),
+    );
+  }
+
+  async getCertificadoLayout(): Promise<{
+    layout: Record<string, unknown> | null;
+  }> {
+    const filePath = this.getCertificadoLayoutFilePath();
+
+    try {
+      const raw = await fs.readFile(filePath, "utf8");
+      const parsed = JSON.parse(raw) as unknown;
+      if (!this.isValidCertificadoLayout(parsed)) {
+        return { layout: null };
+      }
+
+      void this.auditoriaService.registrarAcao(
+        "Configuracao layout certificado congresso acessada",
+      );
+
+      return { layout: parsed as Record<string, unknown> };
+    } catch (error) {
+      const errorCode =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: string }).code ?? "")
+          : "";
+
+      if (errorCode === "ENOENT") {
+        void this.auditoriaService.registrarAcao(
+          "Configuracao layout certificado congresso acessada",
+        );
+        return { layout: null };
+      }
+
+      throw new InternalServerErrorException(
+        "Nao foi possivel carregar o layout do certificado.",
+      );
+    }
+  }
+
+  async saveCertificadoLayout(
+    payload: CertificadoLayoutPayload,
+  ): Promise<{ success: true }> {
+    const candidate = payload.layout;
+    if (!this.isValidCertificadoLayout(candidate)) {
+      throw new BadRequestException("Layout do certificado invalido.");
+    }
+
+    const filePath = this.getCertificadoLayoutFilePath();
+    const folder = path.dirname(filePath);
+
+    try {
+      await fs.mkdir(folder, { recursive: true });
+      await fs.writeFile(filePath, JSON.stringify(candidate, null, 2), "utf8");
+
+      void this.auditoriaService.registrarAcao(
+        "Layout certificado congresso salvo",
+      );
+
+      if (this.isPlainObject(candidate)) {
+        if (
+          candidate.version === 2 &&
+          this.isPlainObject(candidate.frente) &&
+          this.isPlainObject(candidate.verso)
+        ) {
+          const frente = candidate.frente as Record<string, unknown>;
+          const verso = candidate.verso as Record<string, unknown>;
+          if (
+            typeof frente.imagemBase === "string" &&
+            frente.imagemBase.trim().length > 0
+          ) {
+            void this.auditoriaService.registrarAcao(
+              "Imagem frente certificado congresso enviada",
+            );
+          }
+          if (
+            typeof verso.imagemBase === "string" &&
+            verso.imagemBase.trim().length > 0
+          ) {
+            void this.auditoriaService.registrarAcao(
+              "Imagem verso certificado congresso enviada",
+            );
+          }
+        } else if (
+          typeof candidate.imagemBase === "string" &&
+          candidate.imagemBase.trim().length > 0
+        ) {
+          void this.auditoriaService.registrarAcao(
+            "Imagem certificado congresso enviada",
+          );
+        }
+      }
+
+      return { success: true };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        "Nao foi possivel salvar o layout do certificado.",
+      );
+    }
+  }
 
   private digitsOnly(value: unknown): string {
     return typeof value === "string" ? value.replace(/\D/g, "") : "";
@@ -624,6 +882,242 @@ export class CongressosService {
     }
 
     return this.findCongressistaAtivoInternal(cpfDigits, dataNascimento);
+  }
+
+  private get emissoesCertificadoPath(): string {
+    return path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "..",
+      "data",
+      "certificados-emissoes.json",
+    );
+  }
+
+  private async lerEmissoesCertificado(): Promise<
+    Record<string, { data_primeira_emissao: string; total_impressoes: number }>
+  > {
+    try {
+      await fs.mkdir(path.dirname(this.emissoesCertificadoPath), {
+        recursive: true,
+      });
+      const raw = await fs.readFile(this.emissoesCertificadoPath, "utf-8");
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        parsed !== null &&
+        typeof parsed === "object" &&
+        "emissoes" in parsed &&
+        typeof (parsed as Record<string, unknown>).emissoes === "object"
+      ) {
+        return (
+          (parsed as { emissoes: Record<string, unknown> }).emissoes as Record<
+            string,
+            { data_primeira_emissao: string; total_impressoes: number }
+          >
+        );
+      }
+      return {};
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        (error as NodeJS.ErrnoException).code !== "ENOENT"
+      ) {
+        console.warn(
+          "Falha ao ler arquivo de emissoes de certificado (ignorado).",
+        );
+      }
+      return {};
+    }
+  }
+
+  private async salvarEmissoesCertificado(
+    emissoes: Record<
+      string,
+      { data_primeira_emissao: string; total_impressoes: number }
+    >,
+  ): Promise<void> {
+    const filePath = this.emissoesCertificadoPath;
+    const tmpPath = filePath + ".tmp";
+    try {
+      const conteudo = JSON.stringify({ emissoes }, null, 2);
+      await fs.writeFile(tmpPath, conteudo, "utf-8");
+      await fs.rename(tmpPath, filePath);
+    } catch {
+      console.warn(
+        "Falha ao salvar arquivo de emissoes de certificado (ignorado).",
+      );
+      try {
+        await fs.unlink(tmpPath);
+      } catch {
+      }
+    }
+  }
+
+  private async obterOuCriarEmissaoCertificado(
+    chave: string,
+  ): Promise<{ dataEmissao: string; isPrimeiraEmissao: boolean }> {
+    const emissoes = await this.lerEmissoesCertificado();
+    const existente = emissoes[chave];
+
+    if (existente && typeof existente.data_primeira_emissao === "string") {
+      emissoes[chave] = {
+        data_primeira_emissao: existente.data_primeira_emissao,
+        total_impressoes: (existente.total_impressoes ?? 1) + 1,
+      };
+      void this.salvarEmissoesCertificado(emissoes);
+      return { dataEmissao: existente.data_primeira_emissao, isPrimeiraEmissao: false };
+    }
+
+    const dataEmissao = new Date().toISOString();
+    emissoes[chave] = { data_primeira_emissao: dataEmissao, total_impressoes: 1 };
+    void this.salvarEmissoesCertificado(emissoes);
+    return { dataEmissao, isPrimeiraEmissao: true };
+  }
+
+  async emitirCertificadoCongressista(body: CertificadoCongressistaDto) {
+    const cpfDigits = this.digitsOnly(body.cpf);
+    const dataNascimento = body.data_nascimento?.trim() ?? "";
+
+    if (cpfDigits.length !== 11 || !this.isIsoDate(dataNascimento)) {
+      throw new BadRequestException(
+        "Nao foi possivel validar os dados informados.",
+      );
+    }
+
+    const idCongresso = await this.findCongressoAtivoId();
+    if (!idCongresso) {
+      throw new BadRequestException("Congresso ativo nao encontrado.");
+    }
+
+    try {
+      const rows =
+        await this.legacyDatabaseService.query<CertificadoCongressistaRow>(
+          `
+          SELECT TOP 1
+                CC.ID_CONGRESSISTA,
+                CC.ID_CONGRESSO,
+                REPLACE(REPLACE(REPLACE(CC.CPF, '.', ''), '-', ''), ' ', '') AS CPF_NORMALIZADO,
+                CC.CREDENCIADO,
+                CC.FUNCAO,
+                CC.DELEGACAO,
+                CC.PLENARIA,
+                COALESCE(NULLIF(LTRIM(RTRIM(P.NOME_SOCIAL)), ''), P.NOME) AS NOME_CONGRESSISTA,
+                C.ANO,
+                C.DISCRIMINACAO,
+                C.TEMA_GERAL,
+                C.LOCAL,
+                C.ENDERECO,
+                C.DATA_INICIO,
+                C.DATA_FIM,
+                C.HORA_INICIO,
+                C.HORA_FIM,
+                C.LOGO
+          FROM SINTESE.dbo.CONGRESSO_CONGRESSISTA CC
+          INNER JOIN SINTESE.dbo.CONGRESSO C
+            ON C.ID_CONGRESSO = CC.ID_CONGRESSO
+          LEFT JOIN SINTESE.dbo.PESSOAS P
+            ON REPLACE(REPLACE(REPLACE(P.CPF, '.', ''), '-', ''), ' ', '') =
+               REPLACE(REPLACE(REPLACE(CC.CPF, '.', ''), '-', ''), ' ', '')
+          WHERE CC.ID_CONGRESSO = @ID_CONGRESSO
+            AND REPLACE(REPLACE(REPLACE(CC.CPF, '.', ''), '-', ''), ' ', '') = @CPF
+            AND CONVERT(date, P.DATANASCIMENTO) = CONVERT(date, @DATA_NASCIMENTO)
+          ORDER BY CC.ID_CONGRESSISTA DESC
+          `,
+          {
+            ID_CONGRESSO: idCongresso,
+            CPF: cpfDigits,
+            DATA_NASCIMENTO: dataNascimento,
+          },
+        );
+
+      const row = rows[0];
+      if (!row) {
+        void this.auditoriaService.registrarAcao(
+          "Tentativa de certificado congressista nao localizado",
+          cpfDigits,
+        );
+        throw new BadRequestException(
+          "Nao foi possivel emitir o certificado com os dados informados.",
+        );
+      }
+
+      const cpfAuditoria = this.digitsOnly(row.CPF_NORMALIZADO);
+      const cpfValido = cpfAuditoria.length === 11 ? cpfAuditoria : cpfDigits;
+
+      if (!this.toBoolean(row.CREDENCIADO)) {
+        void this.auditoriaService.registrarAcao(
+          "Tentativa de certificado congressista nao credenciado",
+          cpfValido,
+        );
+        throw new BadRequestException(
+          "Certificado disponivel apenas para congressistas credenciados.",
+        );
+      }
+
+      const programacaoRows =
+        await this.legacyDatabaseService.query<CongressoPalestranteRow>(
+          `
+          SELECT
+                NOME,
+                CARGOFUNCAO,
+                DATA_PALESTRA
+          FROM SINTESE.dbo.CONGRESSO_PALESTRANTE
+          WHERE ID_CONGRESSO = @ID_CONGRESSO
+          ORDER BY DATA_PALESTRA, NOME
+          `,
+          { ID_CONGRESSO: idCongresso },
+        );
+
+      const chaveEmissao = `${this.toNumber(row.ID_CONGRESSO)}_${cpfDigits}`;
+      const { dataEmissao, isPrimeiraEmissao } =
+        await this.obterOuCriarEmissaoCertificado(chaveEmissao);
+
+      void this.auditoriaService.registrarAcao(
+        isPrimeiraEmissao
+          ? "Certificado congressista gerado"
+          : "Certificado congressista reimpresso",
+        cpfValido,
+      );
+
+      return {
+        nome: this.toText(row.NOME_CONGRESSISTA),
+        funcao: this.toText(row.FUNCAO),
+        delegacao: this.toText(row.DELEGACAO),
+        plenaria: this.toText(row.PLENARIA),
+        congresso: {
+          id_congresso: this.toNumber(row.ID_CONGRESSO),
+          ano: typeof row.ANO === "number" ? row.ANO : this.toText(row.ANO),
+          discriminacao: this.toText(row.DISCRIMINACAO),
+          tema_geral: this.toText(row.TEMA_GERAL),
+          local: this.toText(row.LOCAL),
+          endereco: this.toText(row.ENDERECO),
+          data_inicio: this.toSerializableDateTime(row.DATA_INICIO),
+          data_fim: this.toSerializableDateTime(row.DATA_FIM),
+          hora_inicio: this.toSerializableDateTime(row.HORA_INICIO),
+          hora_fim: this.toSerializableDateTime(row.HORA_FIM),
+          logo: this.normalizarLogoCongresso(row.LOGO),
+        },
+        programacao: programacaoRows.map((p) => ({
+          nome: this.toText(p.NOME),
+          cargo_funcao: this.toText(p.CARGOFUNCAO),
+          data_palestra: this.toSerializableDateTime(p.DATA_PALESTRA),
+        })),
+        data_emissao: dataEmissao,
+        credenciado: true,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        "Nao foi possivel emitir o certificado no momento.",
+      );
+    }
   }
 
   private async findCongressistaAtivoInternal(

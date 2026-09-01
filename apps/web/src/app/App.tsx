@@ -11,11 +11,13 @@ import { SessionDebugPage } from "../features/auth/pages/SessionDebugPage";
 import { AUTH_SESSION_CHANGED_EVENT, clearAuthSession, hasAuthSession } from "../features/auth/services/authSession";
 import { ConveniosPage } from "../features/convenios/pages/ConveniosPage";
 import { CongressistaPage } from "../features/congressista/pages/CongressistaPage";
+import { CertificadoLayoutConfigPage } from "../features/congressista/pages/CertificadoLayoutConfigPage";
 import { CarteiraPage } from "../features/carteira/pages/CarteiraPage";
 import { CarteiraLayoutConfigPage } from "../features/carteira/pages/CarteiraLayoutConfigPage";
 import { FichaCadastralPage } from "../features/ficha-cadastral/pages/FichaCadastralPage";
 import { JogoCorujinhaPage } from "../features/jogo-corujinha/pages/JogoCorujinhaPage";
 import { LgpdOnlinePage } from "../features/lgpd/pages/LgpdOnlinePage";
+import { LayoutSettingsPage } from "../features/menu/pages/LayoutSettingsPage";
 import { MainMenuPage } from "../features/menu/pages/MainMenuPage";
 import { MinhasFiliacoesPage } from "../features/minhas-filiacoes/pages/MinhasFiliacoesPage";
 import { ParceirosPage } from "../features/parceiros/pages/ParceirosPage";
@@ -159,6 +161,14 @@ export function App() {
         <Route
           path="/configurar-layout-carteira"
           element={isAuthenticated ? <CarteiraLayoutConfigPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/configuracoes-layout"
+          element={isAuthenticated ? <LayoutSettingsPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/configurar-layout-certificado-congresso"
+          element={isAuthenticated ? <CertificadoLayoutConfigPage /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/debug-sessao"

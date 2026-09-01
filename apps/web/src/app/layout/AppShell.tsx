@@ -47,7 +47,7 @@ export function AppShell({ children }: AppShellProps) {
       }
       event.preventDefault();
       event.stopPropagation();
-      navigate("/configurar-layout-carteira");
+      navigate("/configuracoes-layout");
     }
 
     window.addEventListener("keydown", onKeyDown, true);

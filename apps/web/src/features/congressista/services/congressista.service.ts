@@ -1,4 +1,5 @@
 import { apiRequest } from "../../../shared/services/apiClient";
+import type { CertificadoLayoutConfig } from "../layout/certificadoLayout";
 
 export interface CongressoAtivo {
   id_congresso: number | null;
@@ -86,12 +87,51 @@ export interface CarimbarPresencaResponse {
   };
 }
 
+export interface CertificadoProgramacaoItem {
+  nome: string | null;
+  cargo_funcao: string | null;
+  data_palestra: string | null;
+}
+
+export interface CertificadoCongressista {
+  nome: string | null;
+  funcao: string | null;
+  delegacao: string | null;
+  plenaria: string | null;
+  congresso: {
+    id_congresso: number | null;
+    ano: number | string | null;
+    discriminacao: string | null;
+    tema_geral: string | null;
+    local: string | null;
+    endereco: string | null;
+    data_inicio: string | null;
+    data_fim: string | null;
+    hora_inicio: string | null;
+    hora_fim: string | null;
+    logo: string | null;
+  };
+  programacao?: CertificadoProgramacaoItem[];
+  data_emissao: string;
+  credenciado: true;
+}
+
+export interface SolicitarCertificadoCongressistaParams {
+  cpf: string;
+  data_nascimento: string;
+}
+
 export interface CongressistaService {
   getCongressoAtivo(): Promise<CongressoAtivo | null>;
+  getCertificadoLayout(): Promise<Partial<CertificadoLayoutConfig> | null>;
+  saveCertificadoLayout(layout: CertificadoLayoutConfig): Promise<void>;
   consultarCongressistaAtivo(
     cpf: string,
     dataNascimento: string,
   ): Promise<ConsultaCongressistaAtivo>;
+  solicitarCertificadoCongressista(
+    params: SolicitarCertificadoCongressistaParams,
+  ): Promise<CertificadoCongressista>;
   carimbarPresenca(
     idCongressista: number,
     dataPalestra: string,
@@ -105,6 +145,20 @@ class CongressistaServiceImpl implements CongressistaService {
     return apiRequest<CongressoAtivo | null>("/congressos/ativo");
   }
 
+  async getCertificadoLayout(): Promise<Partial<CertificadoLayoutConfig> | null> {
+    const response = await apiRequest<{
+      layout: Partial<CertificadoLayoutConfig> | null;
+    }>("/congressos/certificado-layout");
+    return response.layout ?? null;
+  }
+
+  async saveCertificadoLayout(layout: CertificadoLayoutConfig): Promise<void> {
+    await apiRequest<{ success: true }>("/congressos/certificado-layout", {
+      method: "POST",
+      body: JSON.stringify({ layout }),
+    });
+  }
+
   async consultarCongressistaAtivo(
     cpf: string,
     dataNascimento: string,
@@ -114,6 +168,18 @@ class CongressistaServiceImpl implements CongressistaService {
       {
         method: "POST",
         body: JSON.stringify({ cpf, dataNascimento }),
+      },
+    );
+  }
+
+  async solicitarCertificadoCongressista(
+    params: SolicitarCertificadoCongressistaParams,
+  ): Promise<CertificadoCongressista> {
+    return apiRequest<CertificadoCongressista>(
+      "/congressos/ativo/congressista/certificado",
+      {
+        method: "POST",
+        body: JSON.stringify(params),
       },
     );
   }
