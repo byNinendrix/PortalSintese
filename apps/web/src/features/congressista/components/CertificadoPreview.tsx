@@ -267,6 +267,7 @@ function fieldToStyle(field: CertificadoLayoutField): CSSProperties {
     minHeight: `${field.h}%`,
     fontSize: `${field.fontSize}cqw`,
     fontWeight: field.fontWeight,
+    lineHeight: field.lineHeight ?? 1.2,
     textAlign: field.align,
   };
 }

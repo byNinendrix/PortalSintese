@@ -600,6 +600,22 @@ export function CertificadoLayoutConfigPage() {
                 />
               </label>
               <label className="col-span-2 text-xs font-semibold text-slate-600">
+                Espacamento entre linhas
+                <input
+                  className="form-input mt-1"
+                  type="number"
+                  min="0.8"
+                  max="3"
+                  step="0.05"
+                  value={currentField.lineHeight ?? 1.2}
+                  onChange={(event) =>
+                    updateCurrentField({
+                      lineHeight: Number(event.target.value),
+                    })
+                  }
+                />
+              </label>
+              <label className="col-span-2 text-xs font-semibold text-slate-600">
                 Alinhamento
                 <select
                   className="form-input mt-1"

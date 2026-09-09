@@ -29,6 +29,7 @@ export interface CertificadoLayoutField {
   h: number;
   fontSize: number;
   fontWeight?: number;
+  lineHeight?: number;
   align?: "left" | "center" | "right";
   visible?: boolean;
   texto?: string;
@@ -309,6 +310,11 @@ function normalizeField(
     fontWeight: Number.isFinite(source.fontWeight ?? NaN)
       ? Number(source.fontWeight)
       : fallback.fontWeight,
+    lineHeight: clamp(
+      Number.isFinite(source.lineHeight ?? NaN) ? Number(source.lineHeight) : (fallback.lineHeight ?? 1.2),
+      0.8,
+      3,
+    ),
     align,
     visible: typeof source.visible === "boolean" ? source.visible : fallback.visible,
     texto: typeof source.texto === "string" ? source.texto : fallback.texto,
