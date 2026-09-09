@@ -32,9 +32,12 @@ export function AppShell({ children }: AppShellProps) {
     pathname === "/recuperar-senha" ||
     pathname === "/convenios" ||
     pathname === "/congressista" ||
-    pathname === "/jogo-corujinha";
+    pathname === "/jogo-corujinha" ||
+    pathname === "/configuracoes-layout";
   const isWideLegacyView =
     pathname === "/protocolo-relatorio" || pathname === "/jogo-corujinha";
+  const isFullWidthView =
+    pathname === "/configuracoes-layout";
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -58,9 +61,13 @@ export function AppShell({ children }: AppShellProps) {
 
   if (isLegacyLoginView) {
     return (
-      <div className="auth-page-bg px-4 py-6 sm:px-6">
+      <div className={`${isFullWidthView ? "min-h-screen bg-[linear-gradient(180deg,#f8fafc,#eef2ff)]" : "auth-page-bg px-4 py-6 sm:px-6"}`}>
         <main
-          className={`mx-auto w-full pt-8 sm:pt-10 ${isWideLegacyView ? "max-w-[980px]" : "max-w-md"}`}
+          className={
+            isFullWidthView
+              ? "w-full"
+              : `mx-auto w-full pt-8 sm:pt-10 ${isWideLegacyView ? "max-w-[980px]" : "max-w-md"}`
+          }
         >
           {children}
         </main>

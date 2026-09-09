@@ -82,7 +82,12 @@ function formatImageLimit(): string {
   return `${Math.floor(CERTIFICADO_IMAGEM_MAX_BYTES / 1024 / 1024)} MB`;
 }
 
-export function CertificadoLayoutConfigPage() {
+interface CertificadoLayoutConfigPageProps {
+  embedded?: boolean;
+  onBack?: () => void;
+}
+
+export function CertificadoLayoutConfigPage({ embedded, onBack }: CertificadoLayoutConfigPageProps = {}) {
   const previewCertificado = useMemo(() => buildPreviewCertificado(), []);
   const [layout, setLayout] = useState<CertificadoLayoutConfig>(() =>
     loadCertificadoLayout(),
@@ -334,11 +339,13 @@ export function CertificadoLayoutConfigPage() {
           >
             Salvar layout
           </Button>
-          <Link to="/configuracoes-layout" className="block">
-            <Button type="button" className="btn-modern-danger">
-              Voltar
-            </Button>
-          </Link>
+          {!embedded && (
+            <Link to="/configuracoes-layout" className="block">
+              <Button type="button" className="btn-modern-danger">
+                Voltar
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 

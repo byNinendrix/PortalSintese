@@ -97,7 +97,12 @@ function buildPreviewCarteira(cpfDigits: string): CarteiraResponse {
   };
 }
 
-export function CarteiraLayoutConfigPage() {
+interface CarteiraLayoutConfigPageProps {
+  embedded?: boolean;
+  onBack?: () => void;
+}
+
+export function CarteiraLayoutConfigPage({ embedded, onBack }: CarteiraLayoutConfigPageProps = {}) {
   const session = readAuthSession();
   const cpfDigits = useMemo(() => digitsOnly(session?.cpf ?? ""), [session?.cpf]);
   const fallbackCarteiraPreview = useMemo(() => buildPreviewCarteira(cpfDigits), [cpfDigits]);
@@ -235,9 +240,11 @@ export function CarteiraLayoutConfigPage() {
           <Button type="button" className="btn-modern-primary" onClick={() => void saveLayout()} disabled={isSavingGlobal}>
             Salvar layout
           </Button>
-          <Link to="/menu-principal" className="block">
-            <Button type="button" className="btn-modern-danger">Voltar</Button>
-          </Link>
+          {!embedded && (
+            <Link to="/configuracoes-layout" className="block">
+              <Button type="button" className="btn-modern-danger">Voltar</Button>
+            </Link>
+          )}
         </div>
       </div>
 
