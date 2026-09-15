@@ -71,6 +71,13 @@ function setExibirBotaoCongressista(layout: CarteiraLayoutConfig, value: boolean
   });
 }
 
+function setExibirPalestrantesCongressista(layout: CarteiraLayoutConfig, value: boolean): CarteiraLayoutConfig {
+  return normalizeCarteiraLayout({
+    ...layout,
+    exibirPalestrantesCongressista: value
+  });
+}
+
 function buildPreviewCarteira(cpfDigits: string): CarteiraResponse {
   const cpf = cpfDigits.length === 11 ? cpfDigits : "00000000000";
   const validade = new Date();
@@ -129,6 +136,10 @@ export function CarteiraLayoutConfigPage({ embedded, onBack }: CarteiraLayoutCon
 
   function updateExibirBotaoCongressista(value: boolean) {
     setLayout((prev) => setExibirBotaoCongressista(prev, value));
+  }
+
+  function updateExibirPalestrantesCongressista(value: boolean) {
+    setLayout((prev) => setExibirPalestrantesCongressista(prev, value));
   }
 
   function handleFieldMouseDown(side: CarteiraSide, fieldId: string, event: ReactMouseEvent<HTMLDivElement>) {
@@ -267,7 +278,7 @@ export function CarteiraLayoutConfigPage({ embedded, onBack }: CarteiraLayoutCon
           </div>
 
           <aside className="surface-card p-4">
-            <label className="mb-4 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+            <label className="mb-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
               <input
                 type="checkbox"
                 className="mt-1"
@@ -275,6 +286,21 @@ export function CarteiraLayoutConfigPage({ embedded, onBack }: CarteiraLayoutCon
                 onChange={(e) => updateExibirBotaoCongressista(e.target.checked)}
               />
               Exibir botão Congressista na tela de login
+            </label>
+
+            <label className="mb-4 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={layout.exibirPalestrantesCongressista}
+                onChange={(e) => updateExibirPalestrantesCongressista(e.target.checked)}
+              />
+              <span>
+                Exibir palestrantes e carimbo de presença na consulta do congressista
+                <span className="mt-0.5 block text-[11px] font-normal text-slate-500">
+                  Quando desativado, a seção de palestrantes e o botão de carimbar presença ficam ocultos na consulta pública do congressista.
+                </span>
+              </span>
             </label>
 
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-700">Campos</h2>

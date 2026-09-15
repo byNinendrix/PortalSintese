@@ -14,6 +14,7 @@ export interface CarteiraLayoutField {
 export interface CarteiraLayoutConfig {
   version: 1;
   exibirBotaoCongressista: boolean;
+  exibirPalestrantesCongressista: boolean;
   front: {
     foto: CarteiraLayoutField;
     rh: CarteiraLayoutField;
@@ -33,6 +34,7 @@ export const CARTEIRA_LAYOUT_STORAGE_KEY = "portal_sintese_carteira_layout_v1";
 export const DEFAULT_CARTEIRA_LAYOUT: CarteiraLayoutConfig = {
   version: 1,
   exibirBotaoCongressista: false,
+  exibirPalestrantesCongressista: true,
   front: {
     foto: { x: 10.8, y: 23.8, w: 22, h: 41 },
     rh: { x: 78, y: 24, w: 18, h: 7, fontSize: 2.8, fontWeight: 700, textAlign: "right" },
@@ -74,6 +76,10 @@ export function normalizeCarteiraLayout(input?: Partial<CarteiraLayoutConfig> | 
       typeof source.exibirBotaoCongressista === "boolean"
         ? source.exibirBotaoCongressista
         : DEFAULT_CARTEIRA_LAYOUT.exibirBotaoCongressista,
+    exibirPalestrantesCongressista:
+      typeof source.exibirPalestrantesCongressista === "boolean"
+        ? source.exibirPalestrantesCongressista
+        : DEFAULT_CARTEIRA_LAYOUT.exibirPalestrantesCongressista,
     front: {
       foto: normalizeField(source.front?.foto ?? DEFAULT_CARTEIRA_LAYOUT.front.foto, DEFAULT_CARTEIRA_LAYOUT.front.foto),
       rh: normalizeField(source.front?.rh ?? DEFAULT_CARTEIRA_LAYOUT.front.rh, DEFAULT_CARTEIRA_LAYOUT.front.rh),

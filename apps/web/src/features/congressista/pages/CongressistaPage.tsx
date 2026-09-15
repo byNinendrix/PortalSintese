@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { Button, LoadingSpinner } from "@sintese/ui";
@@ -16,6 +16,7 @@ import {
   type CongressoAtivo,
   type ConsultaCongressistaAtivo,
 } from "../services/congressista.service";
+import { loadCarteiraLayout } from "../../carteira/layout/carteiraLayout";
 
 type NoticeState = {
   message: string;
@@ -397,6 +398,10 @@ export function CongressistaPage() {
   const [certificadoErro, setCertificadoErro] = useState<string | null>(null);
   const [isGerandoCertificado, setIsGerandoCertificado] = useState(false);
   const [shouldPrintCertificado, setShouldPrintCertificado] = useState(false);
+  const exibirPalestrantesCongressista = useMemo(
+    () => loadCarteiraLayout().exibirPalestrantesCongressista,
+    [],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -968,7 +973,7 @@ export function CongressistaPage() {
                 value={yesNo(consulta.congressista.transporte)}
               />
             </dl>
-            {congresso?.palestrantes && congresso.palestrantes.length > 0 ? (
+            {exibirPalestrantesCongressista && congresso?.palestrantes && congresso.palestrantes.length > 0 ? (
               <section className="mt-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Palestrantes
