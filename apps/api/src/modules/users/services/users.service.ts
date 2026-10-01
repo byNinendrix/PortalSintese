@@ -2189,16 +2189,17 @@ Por segurança, altere essa senha no primeiro acesso.`;
       CODIGO_EMPRESAI: this.normalizeOptionalText(payload.codigoEmpresaI),
       CODIGO_PREDIO: this.normalizeOptionalText(payload.codigoPredio),
       CODIGO_PREDIOI: this.normalizeOptionalText(payload.codigoPredioI),
-      DESCONTAR_INSS: payload.descontarInss ?? "N",
+      DESCONTAR_INSS: payload.descontarInss === "S" ? 1 : 0,
       DATA_DESCONTO_INSS: this.toDateValue(payload.dataDescontoInss),
       NUMERO_BENEFICIO_INSS: this.normalizeOptionalText(payload.numeroBeneficioInss),
       CODIGO_ESPECIE_INSS: this.normalizeOptionalText(payload.codigoEspecieInss),
-      DESCONTAR_INSSI: payload.descontarInssI ?? "N",
+      DESCONTAR_INSSI: payload.descontarInssI === "S" ? 1 : 0,
       DATA_DESCONTO_INSSI: this.toDateValue(payload.dataDescontoInssI),
       CODIGO_ESPECIE_INSSI: this.normalizeOptionalText(payload.codigoEspecieInssI),
       NUMERO_BENEFICIO_INSSI: this.normalizeOptionalText(payload.numeroBeneficioInssI)
     };
 
+    try {
     if (draftRegistro) {
       await this.legacyDatabaseService.query(
         `
@@ -2465,6 +2466,35 @@ Por segurança, altere essa senha no primeiro acesso.`;
       protocolo,
       message: "Solicitação de filiação enviada com sucesso."
     };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+
+      const errorInfo = error as {
+        name?: string;
+        message?: string;
+        code?: string;
+        number?: number;
+        state?: number;
+        class?: number;
+        lineNumber?: number;
+        serverName?: string;
+        procName?: string;
+      };
+
+      this.logger.error(
+        `Erro ao criar solicitação de filiação: name=${errorInfo.name ?? "N/A"} message=${errorInfo.message ?? "N/A"} code=${errorInfo.code ?? "N/A"} number=${errorInfo.number ?? "N/A"} state=${errorInfo.state ?? "N/A"} class=${errorInfo.class ?? "N/A"} line=${errorInfo.lineNumber ?? "N/A"} proc=${errorInfo.procName ?? "N/A"}`
+      );
+
+      throw new InternalServerErrorException(
+        "Não foi possível enviar a solicitação no momento. Tente novamente ou procure o suporte."
+      );
+    }
   }
 
   async getProtocoloRelatorio(protocolo?: string, cpf?: string) {
