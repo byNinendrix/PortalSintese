@@ -1052,8 +1052,8 @@ export class UsersService {
     return raw;
   }
 
-  private parseOptionalImage(value: string | undefined, fieldLabel: string): Buffer | null {
-    if (typeof value !== "string") {
+  private parseOptionalImage(value: string | undefined | null, fieldLabel: string): Buffer | null {
+    if (typeof value !== "string" || value.trim().length === 0) {
       return null;
     }
 
