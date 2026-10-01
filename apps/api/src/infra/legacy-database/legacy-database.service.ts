@@ -7,6 +7,16 @@ export interface LegacyDatabaseGateway {
   query<T>(sqlText: string, params?: Record<string, unknown>): Promise<T[]>;
 }
 
+const BINARY_PARAMETER_NAMES = new Set([
+  "FOTO",
+  "FOTO_RESIDENCIA",
+  "FOTO_CONTRACHEQUE01",
+  "FOTO_CONTRACHEQUE02",
+  "FOTO_DOCUMENTO",
+  "FOTO_RG_FRENTE",
+  "FOTO_RG_VERSO",
+]);
+
 @Injectable()
 export class LegacyDatabaseService implements LegacyDatabaseGateway {
   private readonly logger = new Logger(LegacyDatabaseService.name);
@@ -131,6 +141,10 @@ export class LegacyDatabaseService implements LegacyDatabaseGateway {
 
     if (params) {
       for (const [key, value] of Object.entries(params)) {
+        if (BINARY_PARAMETER_NAMES.has(key)) {
+          request.input(key, mssql.VarBinary(mssql.MAX), Buffer.isBuffer(value) ? value : null);
+          continue;
+        }
         if (Buffer.isBuffer(value)) {
           request.input(key, mssql.VarBinary(mssql.MAX), value);
           continue;
