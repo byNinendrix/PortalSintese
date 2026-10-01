@@ -132,6 +132,57 @@ function formatCep(value: string): string {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
+const MAX_IMAGE_WIDTH = 1280;
+const MAX_IMAGE_HEIGHT = 960;
+const JPEG_QUALITY = 0.75;
+const MAX_COMPRESSED_BYTES = 2 * 1024 * 1024;
+
+async function compressImageToDataUrl(source: File | string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > MAX_IMAGE_WIDTH || height > MAX_IMAGE_HEIGHT) {
+        const ratio = Math.min(MAX_IMAGE_WIDTH / width, MAX_IMAGE_HEIGHT / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Não foi possível processar a imagem."));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+
+      const base64 = dataUrl.split(",")[1] ?? "";
+      const bytes = Math.ceil((base64.length * 3) / 4);
+      if (bytes > MAX_COMPRESSED_BYTES) {
+        reject(new Error("A imagem selecionada ficou muito grande. Tente enviar uma imagem menor ou tirar a foto novamente."));
+        return;
+      }
+
+      resolve(dataUrl);
+    };
+
+    img.onerror = () => reject(new Error("Não foi possível carregar a imagem."));
+
+    if (typeof source === "string") {
+      img.src = source;
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => { img.src = String(reader.result ?? ""); };
+      reader.onerror = () => reject(new Error("Não foi possível ler o arquivo."));
+      reader.readAsDataURL(source);
+    }
+  });
+}
+
 function normalizeText(value: string): string {
   return value
     .normalize("NFD")
@@ -287,7 +338,11 @@ function CameraCaptureModal({ title, onCancel, onCapture }: CameraCaptureModalPr
     }
 
     context.drawImage(videoRef.current, 0, 0, width, height);
-    onCapture(canvas.toDataURL("image/jpeg", 0.9));
+    const rawDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    compressImageToDataUrl(rawDataUrl).then(onCapture).catch((compressErr) => {
+      const msg = compressErr instanceof Error ? compressErr.message : "Não foi possível processar a imagem capturada.";
+      setError(msg);
+    });
   }
 
   return (
@@ -673,8 +728,9 @@ export function SolicitarFiliacaoPage() {
     if (!file) {
       return;
     }
-    if (!file.type.startsWith("image/")) {
-      setSubmissionMessage({ type: "error", message: "Selecione apenas arquivos de imagem." });
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setSubmissionMessage({ type: "error", message: "Selecione apenas arquivos de imagem (JPEG, PNG ou WebP)." });
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -682,12 +738,13 @@ export function SolicitarFiliacaoPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result ?? "");
-      setAttachment(field, result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImageToDataUrl(file);
+      setAttachment(field, compressed);
+    } catch (compressErr) {
+      const msg = compressErr instanceof Error ? compressErr.message : "Não foi possível processar a imagem.";
+      setSubmissionMessage({ type: "error", message: msg });
+    }
   }
 
   function openCamera(field: AttachmentKey, title: string) {
@@ -940,7 +997,16 @@ export function SolicitarFiliacaoPage() {
       });
       setStep(1);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Não foi possível enviar a solicitação.";
+      const isPayloadTooLarge =
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        (error as { status?: number }).status === 413;
+      const message = isPayloadTooLarge
+        ? "As imagens enviadas são muito grandes. Tente anexar imagens menores ou tirar a foto novamente."
+        : error instanceof Error
+          ? error.message
+          : "Não foi possível enviar a solicitação.";
       setSubmissionMessage({ type: "error", message });
     }
   }

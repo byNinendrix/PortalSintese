@@ -23,6 +23,8 @@ async function bootstrap() {
     origin: allowedOrigins.length > 0 ? allowedOrigins : env.CORS_ORIGIN,
     credentials: true
   });
+  app.useBodyParser("json", { limit: "50mb" });
+  app.useBodyParser("urlencoded", { extended: true, limit: "50mb" });
   app.use(
     (
       _req: unknown,
@@ -36,8 +38,25 @@ async function bootstrap() {
     next();
     }
   );
-  app.useBodyParser("json", { limit: "10mb" });
-  app.useBodyParser("urlencoded", { extended: true, limit: "10mb" });
+  app.use(
+    (
+      err: unknown,
+      _req: unknown,
+      res: { status: (code: number) => { json: (body: unknown) => void } },
+      next: (err?: unknown) => void
+    ) => {
+      const isPayloadTooLarge =
+        (typeof err === "object" && err !== null && (err as { type?: string; status?: number }).type === "entity.too.large") ||
+        (typeof err === "object" && err !== null && (err as { status?: number }).status === 413);
+      if (isPayloadTooLarge) {
+        res.status(413).json({
+          message: "As imagens enviadas são muito grandes. Reduza o tamanho das imagens e tente novamente."
+        });
+        return;
+      }
+      next(err);
+    }
+  );
   await app.listen(env.PORT);
 }
 
